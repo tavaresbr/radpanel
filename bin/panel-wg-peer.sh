@@ -3,6 +3,7 @@
 # Chamado pelo painel via sudo -n (sudoers restrito, ver server-config/sudoers.radpanel):
 #   panel-wg-peer.sh add NOME CHAVE_PUBLICA   -> "OK 10.99.0.N" (idempotente se NOME+chave já existem)
 #   panel-wg-peer.sh remove NOME              -> "OK"
+#   panel-wg-peer.sh rekey NOME NOVA_CHAVE    -> "OK 10.99.0.N" (troca a chave pública mantendo o IP; idempotente)
 #   panel-wg-peer.sh list                     -> uma linha por peer: "NOME IP CHAVE_PUBLICA"
 #   panel-wg-peer.sh pubkey                   -> chave pública do servidor
 #   panel-wg-peer.sh status                   -> uma linha por peer: "NOME IP EPOCH_DO_ULTIMO_HANDSHAKE" (0 = nunca conectou)
@@ -85,6 +86,26 @@ case "$cmd" in
     msg=$(rebuild) || { echo "Removido, mas falhou ao aplicar: $msg"; exit 1; }
     echo "OK"
     ;;
+  rekey)
+    [ $# -eq 3 ] || { echo "uso: rekey NOME NOVA_CHAVE"; exit 64; }
+    name=$2; key=$3
+    [[ "$name" =~ $NAME_RE ]] || { echo "Nome inválido (até 32: letras, números e _ . -)."; exit 1; }
+    [[ "$key" =~ $KEY_RE ]] || { echo "Chave pública inválida (44 caracteres terminados em =)."; exit 1; }
+    f="$PEERS/$name.conf"
+    [ -f "$f" ] || { echo "Roteador '$name' não encontrado."; exit 1; }
+    ip=$(peer_ip "$f")
+    [ "$(peer_key "$f")" = "$key" ] && { echo "OK $ip"; exit 0; }
+    for o in "$PEERS"/*.conf; do
+      [ -f "$o" ] || continue
+      [ "$o" = "$f" ] && continue
+      [ "$(peer_key "$o")" = "$key" ] && { echo "Essa chave já está em uso por '$(basename "$o" .conf)'."; exit 1; }
+    done
+    cp -p "$f" "$f.bak"
+    printf '[Peer]\n# %s\nPublicKey = %s\nAllowedIPs = %s/32\n' "$name" "$key" "$ip" >"$f.tmp" && mv -f "$f.tmp" "$f"
+    if ! msg=$(rebuild); then mv -f "$f.bak" "$f"; rebuild >/dev/null 2>&1; echo "Falha ao aplicar: $msg"; exit 1; fi
+    rm -f "$f.bak"
+    echo "OK $ip"
+    ;;
   list)
     [ $# -eq 1 ] || { echo "uso: list"; exit 64; }
     for o in "$PEERS"/*.conf; do
@@ -109,5 +130,5 @@ case "$cmd" in
     [ -s "$WG_DIR/server.pub" ] || { echo "server.pub ausente"; exit 1; }
     head -n1 "$WG_DIR/server.pub"
     ;;
-  *) echo "uso: add NOME CHAVE | remove NOME | list | pubkey | status"; exit 64 ;;
+  *) echo "uso: add NOME CHAVE | rekey NOME CHAVE | remove NOME | list | pubkey | status"; exit 64 ;;
 esac

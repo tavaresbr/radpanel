@@ -202,7 +202,7 @@ function mikrotik_wg_script(array $in): string
     }
 
     $l = [];
-    $l[] = '# RadPanel - túnel WireGuard (RouterOS v7.1 ou mais novo). Cole no terminal do MikroTik.';
+    $l[] = '# RadPanel - tunel WireGuard (RouterOS v7.1 ou mais novo). Cole no terminal do MikroTik.';
     $l[] = ':if ([:len [/interface wireguard find name=wg-radius]] = 0) do={ /interface wireguard add name=wg-radius listen-port=13231 comment="RadPanel-' . $name . '" }';
     $l[] = ':if ([:len [/interface wireguard peers find interface=wg-radius]] = 0) do={ ' . sprintf(
         '/interface wireguard peers add interface=wg-radius public-key="%s" endpoint-address=%s endpoint-port=%d allowed-address=10.99.0.1/32 persistent-keepalive=25s comment="RadPanel servidor"',
@@ -211,9 +211,9 @@ function mikrotik_wg_script(array $in): string
         $port
     ) . ' }';
     $l[] = sprintf(':if ([:len [/ip address find address="%s/24"]] = 0) do={ /ip address add address=%s/24 interface=wg-radius comment="RadPanel tunel" }', $addr, $addr);
-    $l[] = '# Se o firewall do roteador bloqueia entrada (chain=input), permita o servidor (necessário para derrubar sessões):';
+    $l[] = '# Se o firewall do roteador bloqueia entrada (chain=input), permita o servidor (necessario para derrubar sessoes):';
     $l[] = '# /ip firewall filter add chain=input in-interface=wg-radius src-address=10.99.0.1 action=accept place-before=0';
-    $l[] = '# Chave pública DESTE roteador (a mesma que você colou no painel):';
+    $l[] = '# Chave publica DESTE roteador (a mesma que voce colou no painel):';
     $l[] = ':put [/interface wireguard get wg-radius public-key]';
     return implode("\n", $l) . "\n";
 }

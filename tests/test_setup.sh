@@ -97,6 +97,25 @@ B=$(page 'setup.php?name=RB09&mode=wg&step=2')
 ok "  handshake antigo: 'já conectou' mas não 'conectado'" "$(echo "$B" | grep -c 'já conectou')$(echo "$B" | grep -c 'tag good">conectado')" 10
 printf '%s\t%s\n' "$K1" "$(date +%s)" >"$HS"
 
+# ---------- trocar a chave do roteador (interface recriada no MikroTik)
+B=$(page 'setup.php?name=RB09&mode=wg&step=1')
+ok "etapa 1 com peer: mostra o formulário de trocar a chave" "$(echo "$B" | grep -c 'value="rekey"')" 1
+K3=$(key); K4=$(key)
+ok "rekey com chave inválida volta com aviso" "$(ploc setup.php setup.php 'action=rekey&name=RB09&mode=wg&pubkey=curta')" "setup.php?name=RB09&mode=wg"
+ok "  aviso" "$(flashes 'setup.php?name=RB09&mode=wg&step=1' | grep -c 'Chave pública inválida')" 1
+ok "outro peer RB10 com a chave K4" "$(ploc setup.php setup.php "action=peer&name=RB10&mode=wg&pubkey=$(enc "$K4")")" "setup.php?name=RB10&mode=wg&step=2"
+ok "rekey com a chave de OUTRO peer: recusa" "$(ploc setup.php setup.php "action=rekey&name=RB09&mode=wg&pubkey=$(enc "$K4")")" "setup.php?name=RB09&mode=wg"
+ok "  aviso de chave em uso" "$(flashes 'setup.php?name=RB09&mode=wg&step=1' | grep -c 'já está em uso')" 1
+ok "rekey de peer inexistente: recusa" "$(ploc setup.php setup.php "action=rekey&name=NAOEXISTE&mode=wg&pubkey=$(enc "$K3")")" "setup.php?name=NAOEXISTE&mode=wg"
+ok "rekey com chave nova: vai à etapa 2" "$(ploc setup.php setup.php "action=rekey&name=RB09&mode=wg&pubkey=$(enc "$K3")")" "setup.php?name=RB09&mode=wg&step=2"
+ok "  helper guarda a chave nova e o MESMO IP" "$(grep -c "PublicKey = $K3" "$WGD/peers.d/RB09.conf")$(grep -c 'AllowedIPs = 10.99.0.2/32' "$WGD/peers.d/RB09.conf")$(grep -c "$K1" "$WGD/peers.d/RB09.conf")" 110
+ok "  auditoria setup.rekey sem a chave" "$(q "SELECT COUNT(*) FROM panel_audit WHERE action='setup.rekey' AND target='RB09'")$(q "SELECT COUNT(*) FROM panel_audit WHERE detail LIKE '%$K3%'")" 10
+B=$(page 'setup.php?name=RB09&mode=wg&step=2')
+ok "  handshake só da chave antiga: ainda sem conexão e com a dica de trocar a chave" "$(echo "$B" | grep -c 'já conectou')$(echo "$B" | grep -c 'ainda sem conexão')$(echo "$B" | grep -c 'Trocar a chave (etapa 1)')" 011
+printf '%s\t%s\n' "$K3" "$(date +%s)" >"$HS"
+ok "  handshake da chave nova: conectado" "$(page 'setup.php?name=RB09&mode=wg&step=2' | grep -c 'tag good">conectado')" 1
+ok "rekey sem CSRF: 400" "$(curl -s -b "$T_DIR/jar-tadmin" -o /dev/null -w '%{http_code}' -d "action=rekey&name=RB09&mode=wg&pubkey=$(enc "$K3")" "$T_WEB/setup.php")" 400
+
 # ---------- etapa 3: cadastro
 B=$(page 'setup.php?name=RB09&mode=wg&step=3')
 SEC=$(echo "$B" | grep -o 'name="secret"[^>]*value="[A-Za-z0-9]*"' | sed 's/.*value="//;s/"//')

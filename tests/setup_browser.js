@@ -40,7 +40,14 @@ const sql = (q) => execFileSync('mariadb', ['-S', process.env.T_SOCK, 'radius', 
   let label = '';
   try { await page.waitForFunction(() => document.querySelector('.copybtn').textContent === 'Copiado!', null, { timeout: 3000 }); label = 'Copiado!'; } catch (e) { label = await page.locator('.copybtn').first().textContent(); }
   check('Copiar mostra "Copiado!"', label === 'Copiado!');
-  fs.writeFileSync(process.env.HS_FILE, key + '\t' + Math.floor(Date.now() / 1000) + '\n');
+  // interface recriada no roteador: a chave muda e o painel troca mantendo o IP
+  await Promise.all([page.waitForNavigation(), page.click('a:has-text("Trocar a chave (etapa 1)")')]);
+  check('etapa 1 com peer: formulário de trocar a chave', (await page.locator('button:has-text("Trocar a chave")').count()) === 1);
+  const key2 = crypto.randomBytes(32).toString('base64');
+  await page.fill('input[name=pubkey]', key2);
+  await Promise.all([page.waitForNavigation(), page.click('button:has-text("Trocar a chave")')]);
+  check('trocar a chave: volta à etapa 2', (await body()).includes('2. Túnel: ligar o roteador ao servidor') && (await body()).includes('Chave trocada'));
+  fs.writeFileSync(process.env.HS_FILE, key2 + '\t' + Math.floor(Date.now() / 1000) + '\n');
   await Promise.all([page.waitForNavigation(), page.click('a:has-text("Verificar de novo")')]);
   check('etapa 2: conectado', (await body()).includes('conectado'));
   await Promise.all([page.waitForNavigation(), page.click('a:has-text("Continuar")')]);

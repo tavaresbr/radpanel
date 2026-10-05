@@ -56,6 +56,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $ip = wg_peer_add($name, trim((string)($_POST['pubkey'] ?? '')));
             audit('setup.peer', $name, ['ip' => $ip]);
             redirect(setup_url($name, 'wg', 2));
+        } elseif ($action === 'rekey') {
+            if ($s['mode'] !== 'wg' || !$s['peer']) {
+                throw new RuntimeException('Este equipamento ainda não está no túnel; use "Adicionar ao túnel".');
+            }
+            $ip = wg_peer_rekey($name, trim((string)($_POST['pubkey'] ?? '')));
+            audit('setup.rekey', $name, ['ip' => $ip]);
+            flash('Chave trocada. O roteador usa o mesmo IP do túnel (' . $ip . '). Confira a conexão abaixo.');
+            redirect(setup_url($name, 'wg', 2));
         } elseif ($action === 'register') {
             if ($s['nas']) {
                 throw new RuntimeException('Este equipamento já está cadastrado.');
@@ -189,6 +197,14 @@ if ($step === 1) {
 <?php if ($s['peer']): ?>
   <p><span class="tag good">feito</span> Este roteador já está no túnel com o IP <span class="mono"><?= h($s['ip']) ?></span>.
   <a href="<?= h(setup_url($name, $mode, 2)) ?>">Continuar para a etapa 2</a></p>
+  <h3>Trocar a chave deste roteador</h3>
+  <p class="muted">Use se você recriou a interface <code>wg-radius</code> no MikroTik: a chave muda e o túnel não conecta até o painel receber a nova. O IP do túnel continua o mesmo.</p>
+  <form method="post" autocomplete="off">
+    <?= csrf_field() ?><input type="hidden" name="action" value="rekey">
+    <input type="hidden" name="name" value="<?= h($name) ?>"><input type="hidden" name="mode" value="wg">
+    <label>Nova chave pública do MikroTik<input name="pubkey" required minlength="44" maxlength="44" placeholder="44 caracteres terminando em ="></label>
+    <button>Trocar a chave</button>
+  </form>
 <?php else: ?>
 <form method="post" autocomplete="off">
   <?= csrf_field() ?><input type="hidden" name="action" value="peer">
@@ -236,6 +252,8 @@ if ($step === 1) {
     <li>Libere <strong>UDP 51820</strong> na Security List da Oracle.</li>
     <li>No MikroTik: <code>/interface wireguard peers print</code> (deve mostrar o servidor) e <code>/ping 10.99.0.1 count=3</code>.</li>
     <li>O relógio do roteador precisa estar certo (<code>/system clock print</code>).</li>
+    <li>Recriou a interface <code>wg-radius</code> no MikroTik? A chave mudou: rode <code>:put [/interface wireguard get wg-radius public-key]</code> e use
+      <a href="<?= h(setup_url($name, $mode, 1)) ?>">Trocar a chave (etapa 1)</a>.</li>
   </ul>
 <?php endif; ?>
 <p><a class="btn" href="<?= h(setup_url($name, $mode, 2)) ?>">Verificar de novo</a>

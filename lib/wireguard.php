@@ -121,3 +121,19 @@ function wg_status(): array
     }
     return $out;
 }
+
+/** Troca a chave pública de um roteador existente (mantém o IP do túnel) e devolve o IP. */
+function wg_peer_rekey(string $name, string $key): string
+{
+    if (!wg_valid_name($name)) {
+        throw new RuntimeException('Nome inválido (até 32: letras, números e _ . -).');
+    }
+    if (!wg_valid_key($key)) {
+        throw new RuntimeException('Chave pública inválida: são 44 caracteres terminados em "=". Copie a chave PÚBLICA do MikroTik (não a privada).');
+    }
+    $r = wg_helper(['rekey', $name, $key]);
+    if (!$r['ok'] || !preg_match('/^OK (10\.99\.0\.\d+)$/D', $r['lines'][0] ?? '', $m) || !wg_valid_ip($m[1])) {
+        throw new RuntimeException($r['message'] !== '' ? $r['message'] : 'Falha ao trocar a chave.');
+    }
+    return $m[1];
+}

@@ -21,6 +21,7 @@ SH
 cat >"$T_DIR/fakewgq" <<SH
 #!/bin/bash
 echo "wg-quick \$*" >>"$T_DIR/wg.log"
+[ "\${1:-}" = "strip" ] && [ -e "$T_DIR/failstrip" ] && { echo "falha simulada"; exit 1; }
 [ "\${1:-}" = "strip" ] && cat "\$2"
 exit 0
 SH
@@ -71,6 +72,24 @@ out=$(hp status extra 2>&1); rc=$?; ok "status com args: rc 64" "$rc" 64
 ok "remove a" "$(hp remove loja-a)" OK
 ok "wg0.conf sem a" "$(grep -c "$K1" "$WGD/wg0.conf")" 0
 ok "novo peer reaproveita IP livre .2" "$(hp add loja-c "$K3")" "OK 10.99.0.2"
+K5=$(key); K6=$(key)
+ok "rekey troca a chave mantendo o IP" "$(hp rekey loja-c "$K5")" "OK 10.99.0.2"
+ok "  wg0.conf sem a chave antiga e com a nova" "$(grep -c "$K3" "$WGD/wg0.conf")$(grep -c "$K5" "$WGD/wg0.conf")" 01
+ok "  list mostra a chave nova" "$(hp list | grep -c "loja-c 10.99.0.2 $K5")" 1
+ok "  idempotente (mesma chave)" "$(hp rekey loja-c "$K5")" "OK 10.99.0.2"
+out=$(hp rekey loja-c "$K2"); rc=$?; ok "  chave de OUTRO peer: recusa" "$rc$(echo "$out" | grep -c 'já está em uso')" 11
+out=$(hp rekey fantasma "$K6"); rc=$?; ok "  peer inexistente: recusa" "$rc" 1
+for badk in 'curta' "${K6}x" "$(echo "$K6" | tr '=' 'A')" "${K6:0:20}\$(id)${K6:30}"; do
+  out=$(hp rekey loja-c "$badk" 2>&1); rc=$?; ok "  chave inválida recusada ($badk)" "$([ $rc -ne 0 ] && echo ok)" ok
+done
+out=$(hp rekey 'a;b' "$K6" 2>&1); rc=$?; ok "  nome hostil recusado" "$([ $rc -ne 0 ] && echo ok)" ok
+out=$(hp rekey loja-c 2>&1); rc=$?; ok "  argumentos faltando: rc 64" "$rc" 64
+touch "$T_DIR/failstrip"
+out=$(hp rekey loja-c "$K6"); rc=$?
+ok "  falha ao aplicar: rc 1 e volta à chave anterior" "$rc$(hp list | grep -c "loja-c 10.99.0.2 $K5")$(ls "$WGD/peers.d" | grep -c '\.bak')" 110
+rm -f "$T_DIR/failstrip"
+ok "  depois da falha, rekey volta a funcionar" "$(hp rekey loja-c "$K6")" "OK 10.99.0.2"
+K3=$K6   # a chave atual de loja-c passa a ser K6 (K3 antiga já não vale)
 out=$(hp remove inexistente); rc=$?; ok "remove inexistente recusa" "$rc" 1
 out=$(hp remove 'a;b' 2>&1); rc=$?; ok "remove nome hostil recusa" "$([ $rc -ne 0 ] && echo ok)" ok
 out=$(hp add so-um 2>&1); rc=$?; ok "args faltando: rc 64" "$rc" 64
@@ -89,7 +108,7 @@ out=$(hp add p254 "$(key)"); rc=$?; ok "254º recusado" "$rc" 1
 rm -f "$WGD"/peers.d/*.conf; hp remove x >/dev/null 2>&1; : >"$T_DIR/wg.log"
 
 # sudoers
-ok "sudoers: add/remove/list/pubkey/status só com o helper" "$(grep -c 'NOPASSWD: /opt/radpanel/bin/panel-wg-peer.sh add \*, /opt/radpanel/bin/panel-wg-peer.sh remove \*, /opt/radpanel/bin/panel-wg-peer.sh list, /opt/radpanel/bin/panel-wg-peer.sh pubkey, /opt/radpanel/bin/panel-wg-peer.sh status$' server-config/sudoers.radpanel)" 1
+ok "sudoers: add/rekey/remove/list/pubkey/status só com o helper" "$(grep -c 'NOPASSWD: /opt/radpanel/bin/panel-wg-peer.sh add \*, /opt/radpanel/bin/panel-wg-peer.sh remove \*, /opt/radpanel/bin/panel-wg-peer.sh rekey \*, /opt/radpanel/bin/panel-wg-peer.sh list, /opt/radpanel/bin/panel-wg-peer.sh pubkey, /opt/radpanel/bin/panel-wg-peer.sh status$' server-config/sudoers.radpanel)" 1
 
 # ---------- gerador de script (PHP CLI)
 PUBS=$(printf 'A%.0s' $(seq 1 43))=
@@ -106,6 +125,7 @@ t('peer', str_contains($s, 'public-key="' . $pub . '" endpoint-address=150.230.6
 t('ip', str_contains($s, '/ip address add address=10.99.0.2/24 interface=wg-radius'));
 t('chave pública do roteador', str_contains($s, ':put [/interface wireguard get wg-radius public-key]'));
 t('sem chave privada', !preg_match('/private/i', $s));
+t('wg: saída 100% ASCII', !preg_match('/[^\\x00-\\x7F]/', $s));
 foreach (explode("\n", trim($s)) as $l) {
   if ($l[0] === '#') { t("comentário sem perigo: $l", !preg_match('/[`$]/', $l)); continue; }
   t("linha permitida: $l", (bool)preg_match('~^(:if \(\[:len \[/(interface wireguard|interface wireguard peers|ip address) find |:put \[/interface wireguard get wg-radius public-key\]$)~', $l));
@@ -123,6 +143,7 @@ $p = $b; unset($p['name']); t('nome padrão', str_contains(mikrotik_wg_script($p
 // src_address no script do RADIUS
 $r = ['server_ip' => '10.99.0.1', 'secret' => 'Abc123-def456', 'name' => 'loja-1', 'services' => ['hotspot'], 'auth_port' => '1812', 'acct_port' => '1813',
   'accounting' => true, 'interim' => '5', 'incoming' => true, 'coa_port' => '3799', 'hotspot_profile' => '', 'src_address' => '10.99.0.2'];
+t('radius: saída 100% ASCII', !preg_match('/[^\\x00-\\x7F]/', mikrotik_script($r)));
 t('src-address no /radius add', str_contains(mikrotik_script($r), 'address=10.99.0.1 src-address=10.99.0.2 secret="'));
 $r['src_address'] = ''; t('sem src-address por padrão', !str_contains(mikrotik_script($r), 'src-address'));
 foreach (['10.99.0.2;x', "10.99.0.2\nx", 'abc', '10.99.0.2 secret="x"', '::1'] as $v) {
