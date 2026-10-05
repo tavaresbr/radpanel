@@ -242,7 +242,7 @@ php "$T_DIR/mt.php" "$ROOT" >"$T_DIR/mt.out" 2>&1; mt_rc=$?
 tail -5 "$T_DIR/mt.out"; ok "mikrotik.php unidade (entradas hostis)" "$mt_rc" 0
 
 # ---------- tools.php (HTTP)
-PRE() { sed -n '/<pre>/,/<\/pre>/p' "$T_DIR/last.html"; }
+PRE() { sed -n '/<pre/,/<\/pre>/p' "$T_DIR/last.html"; }
 ok "gerar script (POST)" "$(t_post tadmin tools.php tools.php "action=mikrotik&server_ip=150.230.64.46&secret=$SECRET_ADM&name=loja-1&services[]=hotspot&services[]=ppp&auth_port=1812&acct_port=1813&interim=5&accounting=1&incoming=1&coa_port=3799")" 200
 ok "  script em <pre> com o segredo" "$(PRE | grep -c "secret=&quot;$SECRET_ADM&quot;")" 1
 ok "  /radius incoming no script" "$(PRE | grep -c 'radius incoming set accept=yes port=3799')" 1

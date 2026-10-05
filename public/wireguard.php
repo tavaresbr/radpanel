@@ -95,7 +95,7 @@ IP fixo interno (<code>10.99.0.N</code>). É esse IP que vai em Equipamentos. S�
   <p><span class="tag bad">erro</span> <?= h($setupErr) ?></p>
 <?php elseif ($serverPub === null): ?>
   <p><span class="tag bad">não configurado</span> No servidor, rode uma vez:</p>
-  <pre>sudo bash /opt/radpanel/bin/wg-setup.sh</pre>
+  <pre data-copy>sudo bash /opt/radpanel/bin/wg-setup.sh</pre>
   <p class="muted">Depois libere <strong>UDP 51820</strong> na Security List da Oracle e recarregue esta página.</p>
 <?php else: ?>
   <p><span class="tag good">ativo</span> Servidor <span class="mono">10.99.0.1</span> · porta UDP 51820 ·
@@ -112,14 +112,14 @@ IP fixo interno (<code>10.99.0.N</code>). É esse IP que vai em Equipamentos. S�
 <li>Cadastre o equipamento abaixo (ou em Equipamentos, com IP <span class="mono"><?= h($newIp) ?></span>) e clique em "Aplicar".</li>
 <li>Em Ferramentas, gere o script do RADIUS com servidor <span class="mono">10.99.0.1</span> e "IP do túnel" <span class="mono"><?= h($newIp) ?></span>.</li>
 </ol>
-<pre><?= h($newScript) ?></pre>
+<pre data-copy><?= h($newScript) ?></pre>
 </div>
 <?php endif; ?>
 
 <h2>Adicionar roteador</h2>
 <div class="card">
 <p><strong>Passo 1.</strong> No terminal do MikroTik (WinBox → New Terminal) rode estas duas linhas e copie a chave que aparecer:</p>
-<pre>/interface wireguard add name=wg-radius listen-port=13231
+<pre data-copy>/interface wireguard add name=wg-radius listen-port=13231
 :put [/interface wireguard get wg-radius public-key]</pre>
 <p><strong>Passo 2.</strong> Cole a chave aqui. O painel dá um IP fixo de túnel e gera o resto do script.</p>
 <form method="post" autocomplete="off">

@@ -95,7 +95,7 @@ em Equipamentos. Sintaxe RouterOS 7.x; revise antes de aplicar.</p>
 </div>
 <?php if ($script !== null): ?>
 <h2>Script gerado</h2>
-<pre><?= h($script) ?></pre>
+<pre data-copy><?= h($script) ?></pre>
 <?php endif; ?>
 
 <h2>Backup</h2>

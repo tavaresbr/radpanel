@@ -40,3 +40,8 @@ pre{background:var(--bg);border:1px solid var(--line);padding:10px;border-radius
 @media print{.noprint,header{display:none!important}body{background:#fff;color:#000}}
 .nowrap{white-space:nowrap}
 .right{text-align:right}
+.copywrap{position:relative}
+.copywrap pre{margin-top:0;padding-right:96px}
+.copybtn{position:absolute;top:8px;right:8px;padding:4px 10px;font-size:.85rem}
+.copyhidden{position:fixed;top:0;left:-9999px;opacity:0}
+@media print{.copybtn{display:none!important}}

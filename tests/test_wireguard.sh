@@ -183,6 +183,16 @@ ok "  saiu do helper" "$(hp list | wc -l)" 0
 ok "  auditoria wg.remove" "$(q "SELECT COUNT(*) FROM panel_audit WHERE action='wg.remove'")" 1
 ok "ação desconhecida não derruba (302)" "$(t_post tadmin wireguard.php wireguard.php 'action=zzz')" 302
 ok "sem erro PHP nos logs" "$(grep -ci 'fatal\|warning\|notice\|deprecated' "$T_DIR/php.log")" 0
+# botão Copiar
+B=$(t_get tadmin wireguard.php)
+ok "wireguard.php: 2 blocos com data-copy (passo 1 e... conforme estado)" "$([ "$(echo "$B" | grep -c '<pre data-copy>')" -ge 1 ] && echo ok)" ok
+ok "tools.php: script gerado é copiável" "$(t_post tadmin tools.php tools.php 'action=mikrotik&server_ip=150.230.64.46&secret=Abc123-def456&name=x&services%5B%5D=hotspot&auth_port=1812&acct_port=1813&interim=5&coa_port=3799' >/dev/null; grep -c '<pre data-copy>' "$T_DIR/last.html")" 1
+ok "nas.php: bloco de clients.d NÃO é copiável" "$(t_get tadmin nas.php | grep -c '<pre data-copy')" 0
+ok "app.js servido com o tratador" "$(curl -s "$T_WEB/app.js" | grep -c 'pre\[data-copy\]')" 1
+ok "CSP sem unsafe-inline" "$(curl -sI "$T_WEB/login.php" | grep -i '^content-security-policy' | grep -c 'unsafe')" 0
+out=$(node tests/copy_browser.js "$T_WEB" tadmin "$T_PASS" 2>&1); rc=$?
+echo "$out" | grep -E '^(FALHA|OK)' | sed 's/^OK /PASS navegador: /;s/^FALHA /FAIL navegador: /'
+if [ $rc -eq 2 ]; then echo "AVISO: Playwright/Chromium indisponível; botão Copiar NÃO testado no navegador"; else ok "navegador real: botão Copiar (rc)" "$rc" 0; fi
 # helper ausente: erro amigável, sem vazar caminho
 sed -i "s#'wg_helper' => '[^']*'#'wg_helper' => '/nao/existe'#" "$T_DIR/config.php"
 sleep 3   # o opcache do php -S revalida arquivos a cada 2 s
