@@ -7,7 +7,7 @@
 # Variáveis opcionais (para uso sem perguntas):
 #   PANEL_DOMAIN, PANEL_EMAIL, PORTAL_DOMAIN, ADMIN_USER, ASSUME_YES=1
 #   DB_NAME (radius)  RADIUS_USER_GROUP (freerad)  RADIUS_ETC (/opt/freeradius/etc/raddb)
-#   SKIP_APT=1 (não instala pacotes)  SKIP_FIREWALL=1  SKIP_CERTBOT=1
+#   SKIP_APT=1 (não instala pacotes)  SKIP_FIREWALL=1  SKIP_CERTBOT=1  FRESH=1 (pergunta de novo, ignora install.env)
 set -euo pipefail
 
 if [[ $EUID -ne 0 ]]; then
@@ -36,6 +36,18 @@ ask() { # variável, pergunta
     read -rp "$prompt" "$var" || true
   fi
 }
+
+# Atualização: reaproveita as respostas da primeira instalação (sem perguntas). FRESH=1 pergunta de novo.
+if [[ -f "$CONF_DIR/install.env" && "${FRESH:-0}" != "1" ]]; then
+  # Arquivo gravado por este instalador (root, modo 600, valores com printf %q).
+  # shellcheck disable=SC1090
+  . "$CONF_DIR/install.env"
+  PANEL_DOMAIN="${PANEL_DOMAIN:-${SAVED_PANEL_DOMAIN:-}}"
+  PORTAL_DOMAIN="${PORTAL_DOMAIN:-${SAVED_PORTAL_DOMAIN:-}}"
+  PANEL_EMAIL="${PANEL_EMAIL:-${SAVED_PANEL_EMAIL:-}}"
+  ASSUME_YES=1
+  echo "==> Usando as respostas salvas em $CONF_DIR/install.env (para perguntar de novo: FRESH=1)"
+fi
 
 ask PANEL_DOMAIN "Domínio do painel (ex.: radius.seudominio.com) ou vazio para acesso só local por túnel SSH: "
 PANEL_DOMAIN="${PANEL_DOMAIN:-}"
@@ -294,7 +306,7 @@ if [[ -n "$PANEL_DOMAIN" ]]; then
   fi
   if [[ "${SKIP_CERTBOT:-0}" != "1" ]]; then
     echo "==> Certificado HTTPS"
-    if ! certbot --apache --expand -d "$PANEL_DOMAIN" ${PORTAL_DOMAIN:+-d "$PORTAL_DOMAIN"} -m "$EMAIL" --agree-tos --no-eff-email --redirect --non-interactive; then
+    if ! certbot --apache --expand -d "$PANEL_DOMAIN" ${PORTAL_DOMAIN:+-d "$PORTAL_DOMAIN"} -m "$EMAIL" --agree-tos --no-eff-email --redirect --non-interactive --keep-until-expiring; then
       echo "AVISO: o certificado HTTPS não foi emitido (confira se o DNS dos domínios aponta para este servidor e as portas 80/443 estão abertas)." >&2
       echo "       O painel segue no ar. Para tentar de novo: sudo certbot --apache --expand -d $PANEL_DOMAIN${PORTAL_DOMAIN:+ -d $PORTAL_DOMAIN} --redirect" >&2
     fi
@@ -305,6 +317,20 @@ echo "==> Backup diário"
 if [[ "${ASSUME_YES:-0}" == "1" ]]; then BK=s; else read -rp "Instalar o backup diário do banco (cron 03:17)? [S/n] " BK || true; fi
 if [[ "${BK:-s}" != "n" && "${BK:-s}" != "N" ]]; then
   DB_NAME="$DB_NAME" bash "$DEST/bin/install-backup.sh" --create-db-user
+fi
+
+# Guarda as respostas para as próximas atualizações (bin/update.sh) e o caminho do clone git.
+install -d -m 750 -o root -g "$WEB_USER" "$CONF_DIR"
+( umask 077
+  {
+    printf 'SAVED_PANEL_DOMAIN=%q\n' "$PANEL_DOMAIN"
+    printf 'SAVED_PORTAL_DOMAIN=%q\n' "$PORTAL_DOMAIN"
+    printf 'SAVED_PANEL_EMAIL=%q\n' "$EMAIL"
+  } > "$CONF_DIR/install.env.tmp" && mv -f "$CONF_DIR/install.env.tmp" "$CONF_DIR/install.env" )
+chown root:root "$CONF_DIR/install.env"; chmod 600 "$CONF_DIR/install.env"
+if [[ -d "$SRC/.git" ]]; then
+  printf '%s\n' "$SRC" > "$CONF_DIR/source.tmp" && mv -f "$CONF_DIR/source.tmp" "$CONF_DIR/source"
+  chown root:root "$CONF_DIR/source"; chmod 644 "$CONF_DIR/source"
 fi
 
 cat <<MSG

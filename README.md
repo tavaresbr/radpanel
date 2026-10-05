@@ -22,7 +22,7 @@ bash tests/run_all.sh             # testes automatizados (precisam de MariaDB e,
 ## Origem do código (divulgação de IA)
 
 Este código foi **gerado com apoio de IA (Claude Code)**, com agentes que escreveram módulos em paralelo, revisão de segurança
-independente e testes automatizados por módulo (1291 testes, 0 falhas na última execução completa). Ele **não** é uma contribuição
+independente e testes automatizados por módulo (1320 testes, 0 falhas na última execução completa). Ele **não** é uma contribuição
 ao projeto FreeRADIUS e não deve ser enviado a ele como tal. Quem for usar deve revisar o código e testar no seu ambiente.
 
 ## Licença

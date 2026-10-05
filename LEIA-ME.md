@@ -54,6 +54,18 @@ Sem domínio: `ssh -L 8080:127.0.0.1:8080 -i SUA_CHAVE ubuntu@150.230.64.46` e a
 Onde fica: código em `/opt/radpanel` (fora da pasta web), configuração em `/etc/radpanel/` (modo 640),
 backups em `/var/backups/radpanel`.
 
+## Atualizar (depois que há versão nova no git)
+
+```bash
+sudo /opt/radpanel/bin/update.sh
+```
+
+Busca a versão nova no git (como o dono do clone, nunca como root; recusa se houver alterações locais ou histórico diferente), roda o instalador
+**sem perguntas** (usa as respostas salvas em `/etc/radpanel/install.env`) e mantém configuração, banco, administradores e certificado.
+Depois aperte **Ctrl+F5** no navegador para recarregar CSS e JavaScript. `FORCE_APT=1` reinstala também os pacotes do sistema.
+A primeira vez (que grava as respostas) ainda é `cd ~/radpanel && git pull && sudo bash install-panel.sh`; para o instalador perguntar de novo: `FRESH=1`.
+Não há atualização automática: você decide quando aplicar.
+
 ## Roteador com IP dinâmico (túnel WireGuard)
 
 O FreeRADIUS só aceita o equipamento pelo IP cadastrado; se o IP do roteador muda, o hotspot para de autenticar (DDNS não ajuda: o
