@@ -5,7 +5,7 @@
 # painel, aplica o SQL idempotente e só cria o administrador se ainda não houver nenhum.
 #
 # Variáveis opcionais (para uso sem perguntas):
-#   PANEL_DOMAIN, PANEL_EMAIL, PORTAL_DOMAIN, ADMIN_USER, ASSUME_YES=1
+#   PANEL_DOMAIN, PANEL_EMAIL, PORTAL_DOMAIN, ADMIN_USER, ASSUME_YES=1, SERVER_IP (IP público, se a detecção falhar)
 #   DB_NAME (radius)  RADIUS_USER_GROUP (freerad)  RADIUS_ETC (/opt/freeradius/etc/raddb)
 #   SKIP_APT=1 (não instala pacotes)  SKIP_FIREWALL=1  SKIP_CERTBOT=1  FRESH=1 (pergunta de novo, ignora install.env)
 set -euo pipefail
@@ -110,6 +110,16 @@ if [[ -f "$CONF_DIR/config.php" ]]; then
   echo "    config.php já existe: mantendo (e a senha do banco do painel)."
   DB_PASS="$(php_get "$CONF_DIR/config.php" db_pass)"
   [[ -n "$DB_PASS" ]] || { echo "config.php sem db_pass." >&2; exit 1; }
+  # IP público do servidor (usado nos scripts do MikroTik): se ficou vazio na 1ª instalação, tenta de novo.
+  if [[ -z "$(php_get "$CONF_DIR/config.php" server_ip)" ]]; then
+    SIP="${SERVER_IP:-$(curl -s --max-time 8 https://api.ipify.org 2>/dev/null || true)}"
+    if [[ "$SIP" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] && grep -q "'server_ip' => ''" "$CONF_DIR/config.php"; then
+      sed -i "s#'server_ip' => ''#'server_ip' => '$SIP'#" "$CONF_DIR/config.php"
+      echo "    server_ip estava vazio: definido como $SIP."
+    else
+      echo "    AVISO: o IP público do servidor não está definido e não consegui descobrir. Rode de novo com SERVER_IP=SEU_IP sudo -E bash install-panel.sh" >&2
+    fi
+  fi
 else
   DB_PASS="$(openssl rand -hex 24)"
   umask 077

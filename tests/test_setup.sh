@@ -160,6 +160,17 @@ ok "step fora da faixa cai na etapa certa" "$(gloc 'setup.php?name=RB09&mode=wg&
 ok "sem erro PHP nos logs" "$(grep -ci 'fatal\|warning\|notice\|deprecated' "$T_DIR/php.log")" 0
 ok "segredos nunca em log do PHP" "$(grep -c "$SEC\|SegredoFixo" "$T_DIR/php.log")" 0
 
+# ---------- IP público do servidor vazio: aviso claro com a solução
+cp "$T_DIR/config.php" "$T_DIR/config.php.bak"
+sed -i "s#'server_ip' => '[^']*'#'server_ip' => ''#" "$T_DIR/config.php"
+sleep 3
+B=$(page 'setup.php?name=RB09&mode=wg&step=2')
+ok "server_ip vazio: etapa 2 avisa e explica o que fazer" "$(echo "$B" | grep -c 'IP público do servidor')$(echo "$B" | grep -c 'update.sh')" 11
+mv "$T_DIR/config.php.bak" "$T_DIR/config.php"; touch "$T_DIR/config.php"   # mtime novo: o opcache compara em segundos
+sleep 3
+B=$(page 'setup.php?name=RB09&mode=wg&step=2')
+ok "server_ip preenchido: sem o aviso" "$(echo "$B" | grep -c 'falta configurar')" 0
+
 # ---------- helper de WireGuard quebrado: a lista ainda abre e a etapa mostra o erro sem vazar caminho
 sed -i "s#'wg_helper' => '[^']*'#'wg_helper' => '/nao/existe'#" "$T_DIR/config.php"
 sleep 3

@@ -173,6 +173,11 @@ echo '<p class="muted">Equipamento: <strong>' . h($name) . '</strong>'
 
 $serverPublic = (string)cfg('server_ip', '');
 echo '<div class="card">';
+if ($serverPublic === '' && ($mode === 'fixed' ? $step >= 5 : $step === 2)) {
+    echo '<p><span class="tag bad">falta configurar</span> O painel não sabe o <strong>IP público do servidor</strong> (<code>server_ip</code> em <code>/etc/radpanel/config.php</code>), '
+        . 'e sem ele não dá para montar o script. No servidor, rode: <code>sudo /opt/radpanel/bin/update.sh</code> (ele descobre o IP) '
+        . 'ou defina na mão: <code>sudo sed -i "s#\'server_ip\' =&gt; \'\'#\'server_ip\' =&gt; \'SEU_IP\'#" /etc/radpanel/config.php</code></p>';
+}
 
 if ($step === 1) {
     ?>
