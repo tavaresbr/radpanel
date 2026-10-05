@@ -53,3 +53,4 @@ pre{background:var(--bg);border:1px solid var(--line);padding:10px;border-radius
 a.btn{display:inline-block;padding:7px 12px;border-radius:6px;background:var(--accent);color:#fff;text-decoration:none;margin-right:6px}
 .checklist{list-style:none;padding:0}
 .checklist li{padding:4px 0}
+.keyshow{word-break:break-all}

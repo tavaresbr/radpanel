@@ -111,7 +111,7 @@ function setup_state(PDO $pdo, string $name, string $mode): array
     // Quem já tem túnel/cadastro pode rever as etapas anteriores.
     return [
         'mode' => $mode, 'peer' => $peer !== null, 'ip' => $ip, 'handshake_ever' => $handshakeEver, 'connected' => $connected,
-        'age' => $peer['age'] ?? null, 'nas' => $nas !== null, 'file' => $file, 'applied' => $applied,
+        'age' => $peer['age'] ?? null, 'key' => $peer['key'] ?? '', 'nas' => $nas !== null, 'file' => $file, 'applied' => $applied,
         'signals' => $signals, 'last_signal' => $lastSignal, 'next' => $next, 'max' => $max,
         'active' => $signals > 0 && $file && $applied, 'wg_error' => $wgError,
     ];

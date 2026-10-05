@@ -102,7 +102,7 @@ function wg_peer_remove(string $name): void
 }
 
 /**
- * Estado dos roteadores: [nome => ['ip' => , 'handshake' => epoch do último aperto de mão (0 = nunca), 'age' => segundos desde então|null]].
+ * Estado dos roteadores: [nome => ['ip' => , 'handshake' => epoch do último aperto de mão (0 = nunca), 'age' => segundos desde então|null, 'key' => chave pública cadastrada]].
  */
 function wg_status(): array
 {
@@ -114,9 +114,9 @@ function wg_status(): array
     $now = time();
     foreach ($r['lines'] as $l) {
         $p = explode(' ', $l);
-        if (count($p) === 3 && wg_valid_name($p[0]) && wg_valid_ip($p[1]) && ctype_digit($p[2])) {
+        if (count($p) === 4 && wg_valid_name($p[0]) && wg_valid_ip($p[1]) && ctype_digit($p[2]) && wg_valid_key($p[3])) {
             $t = (int)$p[2];
-            $out[$p[0]] = ['ip' => $p[1], 'handshake' => $t, 'age' => $t > 0 ? max(0, $now - $t) : null];
+            $out[$p[0]] = ['ip' => $p[1], 'handshake' => $t, 'age' => $t > 0 ? max(0, $now - $t) : null, 'key' => $p[3]];
         }
     }
     return $out;

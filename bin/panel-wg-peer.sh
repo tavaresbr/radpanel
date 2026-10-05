@@ -121,7 +121,7 @@ case "$cmd" in
       [ -f "$o" ] || continue
       k=$(peer_key "$o")
       t=$(printf '%s\n' "$hs" | awk -v k="$k" '$1 == k { print $2; exit }')
-      echo "$(basename "$o" .conf) $(peer_ip "$o") ${t:-0}"
+      echo "$(basename "$o" .conf) $(peer_ip "$o") ${t:-0} $k"
     done
     exit 0
     ;;

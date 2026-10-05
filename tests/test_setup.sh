@@ -100,6 +100,11 @@ printf '%s\t%s\n' "$K1" "$(date +%s)" >"$HS"
 # ---------- trocar a chave do roteador (interface recriada no MikroTik)
 B=$(page 'setup.php?name=RB09&mode=wg&step=1')
 ok "etapa 1 com peer: mostra o formulário de trocar a chave" "$(echo "$B" | grep -c 'value="rekey"')" 1
+ok "etapa 1 mostra a chave cadastrada (K1) e a última conexão" "$(echo "$B" | grep -c "$K1")$(echo "$B" | grep -c 'Última conexão')" 11
+ok "etapa 2 mostra a chave cadastrada" "$(page 'setup.php?name=RB09&mode=wg&step=2' | grep -c "Chave cadastrada no servidor: <span class=\"mono keyshow\">$K1")" 1
+ok "rekey com a MESMA chave: avisa que não precisava" "$(ploc setup.php setup.php "action=rekey&name=RB09&mode=wg&pubkey=$(enc "$K1")")" "setup.php?name=RB09&mode=wg&step=2"
+ok "  aviso 'já é a chave cadastrada'" "$(flashes 'setup.php?name=RB09&mode=wg&step=2' | grep -c 'já é a chave cadastrada')" 1
+ok "  e sem auditoria de troca" "$(q "SELECT COUNT(*) FROM panel_audit WHERE action='setup.rekey'")" 0
 K3=$(key); K4=$(key)
 ok "rekey com chave inválida volta com aviso" "$(ploc setup.php setup.php 'action=rekey&name=RB09&mode=wg&pubkey=curta')" "setup.php?name=RB09&mode=wg"
 ok "  aviso" "$(flashes 'setup.php?name=RB09&mode=wg&step=1' | grep -c 'Chave pública inválida')" 1
@@ -108,6 +113,7 @@ ok "rekey com a chave de OUTRO peer: recusa" "$(ploc setup.php setup.php "action
 ok "  aviso de chave em uso" "$(flashes 'setup.php?name=RB09&mode=wg&step=1' | grep -c 'já está em uso')" 1
 ok "rekey de peer inexistente: recusa" "$(ploc setup.php setup.php "action=rekey&name=NAOEXISTE&mode=wg&pubkey=$(enc "$K3")")" "setup.php?name=NAOEXISTE&mode=wg"
 ok "rekey com chave nova: vai à etapa 2" "$(ploc setup.php setup.php "action=rekey&name=RB09&mode=wg&pubkey=$(enc "$K3")")" "setup.php?name=RB09&mode=wg&step=2"
+ok "  etapa 1 agora mostra a chave NOVA e não a antiga" "$(page 'setup.php?name=RB09&mode=wg&step=1' | grep -c "mono keyshow\">$K3")$(page 'setup.php?name=RB09&mode=wg&step=1' | grep -c "mono keyshow\">$K1")" 10
 ok "  helper guarda a chave nova e o MESMO IP" "$(grep -c "PublicKey = $K3" "$WGD/peers.d/RB09.conf")$(grep -c 'AllowedIPs = 10.99.0.2/32' "$WGD/peers.d/RB09.conf")$(grep -c "$K1" "$WGD/peers.d/RB09.conf")" 110
 ok "  auditoria setup.rekey sem a chave" "$(q "SELECT COUNT(*) FROM panel_audit WHERE action='setup.rekey' AND target='RB09'")$(q "SELECT COUNT(*) FROM panel_audit WHERE detail LIKE '%$K3%'")" 10
 B=$(page 'setup.php?name=RB09&mode=wg&step=2')

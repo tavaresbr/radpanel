@@ -66,7 +66,7 @@ ok "syncconf foi chamado" "$(grep -c '^wg syncconf wg0' "$T_DIR/wg.log" | awk '{
 ok "list mostra 2 linhas" "$(hp list | wc -l)" 2
 ok "list formato" "$(hp list | head -1)" "loja-a 10.99.0.2 $K1"
 ok "pubkey" "$(hp pubkey)" "SERVERPUBKEYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-ok "status: sem handshake = 0" "$(hp status | head -1)" "loja-a 10.99.0.2 0"
+ok "status: sem handshake = 0, com a chave cadastrada" "$(hp status | head -1)" "loja-a 10.99.0.2 0 $K1"
 ok "status: 2 linhas" "$(hp status | wc -l)" 2
 out=$(hp status extra 2>&1); rc=$?; ok "status com args: rc 64" "$rc" 64
 ok "remove a" "$(hp remove loja-a)" OK

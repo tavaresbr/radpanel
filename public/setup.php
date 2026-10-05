@@ -60,9 +60,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             if ($s['mode'] !== 'wg' || !$s['peer']) {
                 throw new RuntimeException('Este equipamento ainda não está no túnel; use "Adicionar ao túnel".');
             }
-            $ip = wg_peer_rekey($name, trim((string)($_POST['pubkey'] ?? '')));
-            audit('setup.rekey', $name, ['ip' => $ip]);
-            flash('Chave trocada. O roteador usa o mesmo IP do túnel (' . $ip . '). Confira a conexão abaixo.');
+            $newKey = trim((string)($_POST['pubkey'] ?? ''));
+            $same = $newKey !== '' && hash_equals($s['key'], $newKey);
+            $ip = wg_peer_rekey($name, $newKey);
+            if ($same) {
+                flash('Essa já é a chave cadastrada para este roteador: não precisava trocar. Se o túnel não conecta, o problema é outro (veja as dicas abaixo).');
+            } else {
+                audit('setup.rekey', $name, ['ip' => $ip]);
+                flash('Chave trocada. O roteador usa o mesmo IP do túnel (' . $ip . '). Confira a conexão abaixo.');
+            }
             redirect(setup_url($name, 'wg', 2));
         } elseif ($action === 'register') {
             if ($s['nas']) {
@@ -197,6 +203,9 @@ if ($step === 1) {
 <?php if ($s['peer']): ?>
   <p><span class="tag good">feito</span> Este roteador já está no túnel com o IP <span class="mono"><?= h($s['ip']) ?></span>.
   <a href="<?= h(setup_url($name, $mode, 2)) ?>">Continuar para a etapa 2</a></p>
+  <p>Chave cadastrada no servidor para este roteador: <span class="mono keyshow"><?= h($s['key']) ?></span><br>
+  <span class="muted">Última conexão: <?= $s['handshake_ever'] ? 'há ' . h(fmt_age((int)$s['age'])) . ($s['connected'] ? ' (conectado)' : '') : 'nunca (ainda sem conexão)' ?>.
+  Compare com a chave do MikroTik (<code>:put [/interface wireguard get wg-radius public-key]</code>): se forem <strong>iguais</strong>, não precisa trocar; se forem <strong>diferentes</strong>, use o formulário abaixo.</span></p>
   <h3>Trocar a chave deste roteador</h3>
   <p class="muted">Use se você recriou a interface <code>wg-radius</code> no MikroTik: a chave muda e o túnel não conecta até o painel receber a nova. O IP do túnel continua o mesmo.</p>
   <form method="post" autocomplete="off">
@@ -242,6 +251,9 @@ if ($step === 1) {
     }
     ?>
 <h3>Conferir a conexão</h3>
+<?php if ($s['key'] !== ''): ?>
+  <p class="muted">Chave cadastrada no servidor: <span class="mono keyshow"><?= h($s['key']) ?></span> (precisa ser igual à do MikroTik).</p>
+<?php endif; ?>
 <?php if ($s['connected']): ?>
   <p><span class="tag good">conectado</span> Último contato há <?= (int)$s['age'] ?> s. O túnel está funcionando.</p>
 <?php elseif ($s['handshake_ever']): ?>
