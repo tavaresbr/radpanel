@@ -14,6 +14,7 @@ declare(strict_types=1);
  * não tem como interpretar nada como comando ou substituição.
  */
 
+const MT_VERSION = 2;
 const MT_SERVICES = ['hotspot', 'ppp'];
 const MT_SECRET_RE = '/^[A-Za-z0-9._,:@#%^*+=~\/!-]{8,64}$/D';
 
@@ -44,7 +45,8 @@ function mt_valid_port(string $p): ?int
 /**
  * Valida e normaliza os campos. Lança RuntimeException (mensagem em português) se algo for inválido.
  * Campos: server_ip, secret, name, services (array), auth_port, acct_port, accounting (bool),
- * interim (minutos 1..60), incoming (bool), coa_port, hotspot_profile ('' = perfil padrão).
+ * interim (minutos 1..60), incoming (bool), coa_port, hotspot_profile ('' = perfil padrão),
+ * src_address ('' = sem túnel), firewall (bool; padrão sim quando incoming: regra UDP do CoA só do servidor).
  */
 function mikrotik_validate(array $in): array
 {
@@ -106,6 +108,7 @@ function mikrotik_validate(array $in): array
 
     $out['accounting'] = !empty($in['accounting']);
     $out['incoming']   = !empty($in['incoming']);
+    $out['firewall']   = array_key_exists('firewall', $in) ? !empty($in['firewall']) : true;
 
     $interim = trim($str($in['interim'] ?? '5'));
     if (!preg_match('/^[0-9]{1,2}$/D', $interim) || (int)$interim < 1 || (int)$interim > 60) {
@@ -136,34 +139,65 @@ function mikrotik_script(array $in): string
     $hotspot = in_array('hotspot', $v['services'], true);
     $ppp = in_array('ppp', $v['services'], true);
 
+    $tag = 'RadPanel-' . $v['name'];
+    $hsSel = $v['hotspot_profile'] === '' ? 'default=yes' : 'name="' . $v['hotspot_profile'] . '"';
+    $fwIp = filter_var($v['server_ip'], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false;
+
     $l = [];
     $l[] = '# RadPanel - script para RouterOS v7 (cole no terminal ou importe com /import)';
     $l[] = '# Revise antes de aplicar. O servidor precisa ter este equipamento cadastrado como cliente RADIUS.';
+    $l[] = sprintf('# Gerador v%d, %s UTC. Pode ser colado de novo: as entradas "%s" são recriadas, não duplicadas.', MT_VERSION, gmdate('Y-m-d H:i'), $tag);
+    // Idempotente: remove a entrada anterior deste painel (identificada pelo comentário) antes de criar.
+    $l[] = sprintf('/radius remove [ find comment="%s" ]', $tag);
     $l[] = sprintf(
-        '/radius add service=%s address=%s%s secret="%s" authentication-port=%d accounting-port=%d timeout=3s comment="RadPanel-%s"',
+        '/radius add service=%s address=%s%s secret="%s" authentication-port=%d accounting-port=%d timeout=3s called-id=%s comment="%s"',
         implode(',', $v['services']),
         $v['server_ip'],
         $v['src_address'] === '' ? '' : ' src-address=' . $v['src_address'],
         $v['secret'],
         $v['auth_port'],
         $v['acct_port'],
-        $v['name']
+        $v['name'],
+        $tag
     );
     if ($v['incoming']) {
         $l[] = sprintf('/radius incoming set accept=yes port=%d', $v['coa_port']);
-        $l[] = sprintf('# CoA/Disconnect: libere UDP %d vindo de %s no firewall do equipamento.', $v['coa_port'], $v['server_ip']);
+        if ($v['firewall'] && $fwIp) {
+            $fwc = $tag . ' coa';
+            $l[] = sprintf('/ip firewall filter remove [ find comment="%s" ]', $fwc);
+            $rule = sprintf('/ip firewall filter add chain=input protocol=udp src-address=%s dst-port=%d action=accept comment="%s"', $v['server_ip'], $v['coa_port'], $fwc);
+            // place-before=0 falha se a lista estiver vazia; nesse caso adiciona sem posição.
+            $l[] = ':do { ' . $rule . ' place-before=0 } on-error={ ' . $rule . ' }';
+        } else {
+            $l[] = sprintf('# CoA/Disconnect: libere UDP %d vindo de %s no firewall do equipamento.', $v['coa_port'], $v['server_ip']);
+        }
     }
     if ($hotspot) {
-        $sel = $v['hotspot_profile'] === '' ? 'default=yes' : 'name="' . $v['hotspot_profile'] . '"';
+        // O painel guarda o MAC como AA-BB-CC-DD-EE-FF; o padrão do MikroTik (XX:XX:...) não casaria.
         $l[] = sprintf(
-            '/ip hotspot profile set [ find %s ] use-radius=yes radius-accounting=%s radius-interim-update=%dm',
-            $sel,
+            '/ip hotspot profile set [ find %s ] use-radius=yes radius-accounting=%s radius-interim-update=%dm radius-mac-format=XX-XX-XX-XX-XX-XX',
+            $hsSel,
             $acct,
             $v['interim']
         );
     }
     if ($ppp) {
         $l[] = sprintf('/ppp aaa set use-radius=yes accounting=%s interim-update=%dm', $acct, $v['interim']);
+    }
+    $l[] = sprintf(':log info "%s aplicado"', $tag);
+    $l[] = '# --- Desfazer (rollback): tire o "#" das linhas abaixo e cole ---';
+    $l[] = sprintf('# /radius remove [ find comment="%s" ]', $tag);
+    if ($v['incoming']) {
+        $l[] = '# /radius incoming set accept=no';
+        if ($v['firewall'] && $fwIp) {
+            $l[] = sprintf('# /ip firewall filter remove [ find comment="%s coa" ]', $tag);
+        }
+    }
+    if ($hotspot) {
+        $l[] = sprintf('# /ip hotspot profile set [ find %s ] use-radius=no', $hsSel);
+    }
+    if ($ppp) {
+        $l[] = '# /ppp aaa set use-radius=no';
     }
     return implode("\n", $l) . "\n";
 }

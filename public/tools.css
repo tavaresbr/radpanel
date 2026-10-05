@@ -1,0 +1,3 @@
+button.secondary{background:none;color:var(--accent);border:1px solid var(--accent)}
+details.gap{margin:10px 0}
+details summary{cursor:pointer;color:var(--accent)}

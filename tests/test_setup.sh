@@ -150,7 +150,7 @@ ok "  cadastrar com IP público" "$(ploc setup.php setup.php 'action=register&na
 ok "  peer inexistente: ação peer recusada" "$(ploc setup.php setup.php "action=peer&name=FX1&mode=fixed&pubkey=$(enc "$K2")")" "setup.php?name=FX1&mode=fixed"
 ploc setup.php setup.php 'action=apply&name=FX1&mode=fixed' >/dev/null
 B=$(page 'setup.php?name=FX1&mode=fixed&step=5')
-ok "  script do RADIUS com o IP público do servidor e sem src-address" "$(echo "$B" | grep -c 'address=150.230.64.46 secret=')$(echo "$B" | grep -c 'src-address')" 10
+ok "  script do RADIUS com o IP público do servidor e sem src-address" "$(echo "$B" | grep -c 'address=150.230.64.46 secret=')$(echo "$B" | grep '^/radius add' | grep -c 'src-address')" 10
 ok "  lista mostra 2 equipamentos" "$(page setup.php | grep -c '<td>RB09</td>\|<td>FX1</td>')" 2
 
 # ---------- robustez
