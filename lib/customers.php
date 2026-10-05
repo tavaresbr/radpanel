@@ -96,12 +96,126 @@ function cust_text(string $v, string $label, int $max, bool $required = false, b
     return $v;
 }
 
+// ---------------------------------------------------------------- CPF / CNPJ
+
+function cust_doc_digits(string $s): string
+{
+    return preg_replace('/\D+/', '', $s) ?? '';
+}
+
+/** 'cpf' | 'cnpj' (dígitos verificadores corretos) ou null. Aceita só dígitos. */
+function cust_doc_type(string $d): ?string
+{
+    if (!preg_match('/^\d{11}$|^\d{14}$/', $d) || preg_match('/^(\d)\1+$/', $d)) {
+        return null;
+    }
+    $n = strlen($d);
+    $w = $n === 11 ? [10, 9, 8, 7, 6, 5, 4, 3, 2] : [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    for ($k = 0; $k < 2; $k++) {
+        $sum = 0;
+        foreach ($w as $i => $wt) {
+            $sum += (int)$d[$i] * $wt;
+        }
+        $dv = $sum % 11 < 2 ? 0 : 11 - $sum % 11;
+        if ((int)$d[count($w)] !== $dv) {
+            return null;
+        }
+        $w = $n === 11 ? [11, ...$w] : [6, ...$w];
+    }
+    return $n === 11 ? 'cpf' : 'cnpj';
+}
+
+function cust_doc_format(string $d, string $type): string
+{
+    return $type === 'cpf'
+        ? preg_replace('/^(\d{3})(\d{3})(\d{3})(\d{2})$/', '$1.$2.$3-$4', $d)
+        : preg_replace('/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/', '$1.$2.$3/$4-$5', $d);
+}
+
+/** Valida e formata o CPF/CNPJ digitado. '' só é aceito se !$required. */
+function cust_doc_normalize(string $in, bool $required): string
+{
+    $in = cust_text($in, 'CPF/CNPJ', 30);
+    $d = cust_doc_digits($in);
+    if ($d === '' && $in !== '') {
+        throw new RuntimeException('CPF ou CNPJ inválido.');
+    }
+    if ($d === '') {
+        if ($required) {
+            throw new RuntimeException('Informe o CPF ou CNPJ do cliente.');
+        }
+        return '';
+    }
+    $type = cust_doc_type($d);
+    if ($type === null) {
+        throw new RuntimeException('CPF ou CNPJ inválido.');
+    }
+    return cust_doc_format($d, $type);
+}
+
+/** Mapeia a resposta da BrasilAPI para os campos do formulário. */
+function cust_cnpj_map(array $j): array
+{
+    $s = fn($k) => trim((string)($j[$k] ?? ''));
+    $name = $s('razao_social') !== '' ? $s('razao_social') : $s('nome_fantasia');
+    $phone = preg_replace('/[^0-9]/', '', $s('ddd_telefone_1')) ?? '';
+    if (strlen($phone) === 10 || strlen($phone) === 11) {
+        $phone = '(' . substr($phone, 0, 2) . ') ' . substr($phone, 2, -4) . '-' . substr($phone, -4);
+    } else {
+        $phone = '';
+    }
+    $street = trim($s('descricao_tipo_de_logradouro') . ' ' . $s('logradouro'));
+    $parts = array_filter([
+        trim($street . ($s('numero') !== '' ? ', ' . $s('numero') : '') . ($s('complemento') !== '' ? ' - ' . $s('complemento') : '')),
+        $s('bairro'),
+        trim($s('municipio') . ($s('uf') !== '' ? '/' . $s('uf') : '')),
+        $s('cep') !== '' ? 'CEP ' . $s('cep') : '',
+    ], fn($x) => $x !== '');
+    $email = strtolower($s('email'));
+    return [
+        'name' => mb_substr($name, 0, 120),
+        'email' => filter_var($email, FILTER_VALIDATE_EMAIL) ? mb_substr($email, 0, 120) : '',
+        'phone' => $phone,
+        'address' => mb_substr(implode(', ', $parts), 0, 255),
+        'situacao' => $s('descricao_situacao_cadastral'),
+    ];
+}
+
+/** Consulta o CNPJ na BrasilAPI (servidor -> HTTPS; o navegador não sai da CSP). */
+function cust_cnpj_lookup(string $cnpjDigits): array
+{
+    if (cust_doc_type($cnpjDigits) !== 'cnpj') {
+        throw new RuntimeException('CNPJ inválido.');
+    }
+    $ch = curl_init('https://brasilapi.com.br/api/cnpj/v1/' . $cnpjDigits);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_CONNECTTIMEOUT => 4, CURLOPT_TIMEOUT => 8,
+        CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_MAXFILESIZE => 262144,
+        CURLOPT_HTTPHEADER => ['Accept: application/json'], CURLOPT_USERAGENT => 'radpanel',
+    ]);
+    $body = curl_exec($ch);
+    $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    if ($body === false) {
+        error_log('radpanel cnpj: ' . curl_error($ch));
+    }
+    curl_close($ch);
+    if ($code === 404 || $code === 400) {
+        throw new RuntimeException('CNPJ não encontrado na Receita Federal.');
+    }
+    $j = is_string($body) ? json_decode($body, true) : null;
+    if ($code !== 200 || !is_array($j)) {
+        throw new RuntimeException('Consulta de CNPJ indisponível agora. Preencha manualmente.');
+    }
+    return cust_cnpj_map($j);
+}
+
 /**
  * Valida os campos do formulário de cliente. $selfId: cliente em edição (para o vínculo),
  * $currentUser: vínculo atual (mantido mesmo que o usuário RADIUS tenha sumido).
  * Devolve campos normalizados; lança RuntimeException amigável.
  */
-function cust_validate(PDO $pdo, array $in, ?int $selfId = null, ?string $currentUser = null): array
+function cust_validate(PDO $pdo, array $in, ?int $selfId = null, ?string $currentUser = null, bool $requireDoc = false): array
 {
     $name = cust_text((string)($in['name'] ?? ''), 'Nome', 120, true);
     $email = cust_text((string)($in['email'] ?? ''), 'E-mail', 120);
@@ -112,7 +226,14 @@ function cust_validate(PDO $pdo, array $in, ?int $selfId = null, ?string $curren
     if ($phone !== '' && (!preg_match('/^[0-9+()\- ]+$/', $phone) || !preg_match('/\d/', $phone))) {
         throw new RuntimeException('Telefone inválido (use só dígitos e + ( ) - espaço).');
     }
-    $document = cust_text((string)($in['document'] ?? ''), 'Documento', 30);
+    $document = cust_doc_normalize((string)($in['document'] ?? ''), $requireDoc);
+    if ($document !== '') {
+        $st = $pdo->prepare('SELECT id FROM panel_customers WHERE document = ? AND id <> ? LIMIT 1');
+        $st->execute([$document, $selfId ?? 0]);
+        if ($st->fetchColumn() !== false) {
+            throw new RuntimeException('Já existe um cliente com esse CPF/CNPJ.');
+        }
+    }
     $address = cust_text((string)($in['address'] ?? ''), 'Endereço', 255);
     $notes = cust_text((string)($in['notes'] ?? ''), 'Observações', 1000, false, true);
 
@@ -152,7 +273,7 @@ function cust_is_dup_error(PDOException $e): bool
 
 function cust_create(PDO $pdo, array $in): int
 {
-    $f = cust_validate($pdo, $in);
+    $f = cust_validate($pdo, $in, null, null, true);
     try {
         $pdo->prepare(
             'INSERT INTO panel_customers (name, email, phone, document, address, notes, username)

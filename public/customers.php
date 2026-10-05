@@ -140,10 +140,12 @@ if ($tab === 'list') {
 <div class="card">
 <form method="post" class="row">
   <?= csrf_field() ?><input type="hidden" name="action" value="create">
+  <label>CPF / CNPJ *<input name="document" maxlength="18" required inputmode="numeric" autocomplete="off" data-doc data-auto placeholder="só números"></label>
+  <label class="nowrap"><span>&nbsp;</span><button type="button" class="secondary" data-cnpj-lookup>Buscar CNPJ</button></label>
+  <p class="muted wide" data-doc-status>CNPJ: os dados da empresa são preenchidos automaticamente. CPF: só é validado.</p>
   <label class="wide">Nome *<input name="name" maxlength="120" required></label>
   <label class="wide">E-mail<input name="email" type="email" maxlength="120"></label>
   <label>Telefone<input name="phone" maxlength="30" pattern="[0-9+() \-]*"></label>
-  <label>Documento (opcional)<input name="document" maxlength="30"></label>
   <label class="wide">Usuário RADIUS (opcional, deve existir)<input name="username" maxlength="64" pattern="[A-Za-z0-9_.@\-]*"></label>
   <label class="wide">Endereço<input name="address" maxlength="255"></label>
   <label class="wide">Observações<input name="notes" maxlength="1000"></label>
@@ -287,4 +289,4 @@ if ($tab === 'list') {
 </table></div>
 <?php
 }
-page_footer();
+page_footer(['js' => ['customers.js']]);
