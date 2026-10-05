@@ -86,8 +86,11 @@ ok "  preço 79,90 gravado" "$(q "SELECT price FROM panel_plan_prices WHERE grou
 q "INSERT INTO radusergroup (username,groupname,priority) VALUES ('u_ana','basico',1)"
 
 # --- validações de cadastro
+# CPF válido único por chamada (cadastro agora exige CPF/CNPJ)
+DOCN=100000000
+nextdoc() { DOCN=$((DOCN+1)); php -r 'require $argv[1]."/lib/customers.php"; $b=$argv[2]; foreach([10,11] as $n){$s=0;for($i=0;$i<strlen($b);$i++)$s+=(int)$b[$i]*($n-$i);$r=$s%11;$b.=($r<2?0:11-$r);} echo $b;' "$ROOT" "$DOCN"; }
 inv() { # descricao campos
-  t_post toper customers.php customers.php "action=create&$2" >/dev/null
+  t_post toper customers.php customers.php "action=create&document=$(nextdoc)&$2" >/dev/null
   ok "$1" "$(q "SELECT COUNT(*) FROM panel_customers")" "$3"
 }
 inv "nome vazio rejeitado" "name=&email=a@b.com" 0
@@ -95,15 +98,21 @@ inv "e-mail inválido rejeitado" "name=Teste&email=nao-e-email" 0
 inv "telefone inválido rejeitado" "name=Teste&phone=abc123" 0
 inv "telefone só símbolos rejeitado" "name=Teste&phone=%28%29" 0
 inv "nome > 120 rejeitado" "name=$(printf 'A%.0s' $(seq 1 121))" 0
-inv "documento > 30 rejeitado" "name=Teste&document=$(printf '1%.0s' $(seq 1 31))" 0
+inv_raw() { t_post toper customers.php customers.php "action=create&$2" >/dev/null; ok "$1" "$(q "SELECT COUNT(*) FROM panel_customers")" "$3"; }
+inv_raw "documento > 30 rejeitado" "name=Teste&document=$(printf '1%.0s' $(seq 1 31))" 0
+inv_raw "documento ausente rejeitado" "name=Teste" 0
+inv_raw "CPF com dígito errado rejeitado" "name=Teste&document=111.444.777-36" 0
+inv_raw "CNPJ com dígito errado rejeitado" "name=Teste&document=11.222.333%2F0001-82" 0
+inv_raw "documento só repetidos rejeitado" "name=Teste&document=00000000000" 0
+inv_raw "documento com letras rejeitado" "name=Teste&document=DOC123456789" 0
 inv "usuário inexistente rejeitado" "name=Teste&username=nao_existe" 0
 ok "  mensagem de usuário inexistente" "$(cflash | grep -c 'não existe')" 1
 inv "usuário com caracteres inválidos rejeitado" "name=Teste&username=x%27%20OR%201=1--" 0
-ok "operator cria cliente completo" "$(t_post toper customers.php customers.php 'action=create&name=Ana+Silva&email=ana.segredo%40exemplo.com&phone=%2B55+%2811%29+99988-7766&document=DOC123456789&address=Rua+Secreta+10&notes=obs+privada&username=u_ana')" 302
+ok "operator cria cliente completo" "$(t_post toper customers.php customers.php 'action=create&name=Ana+Silva&email=ana.segredo%40exemplo.com&phone=%2B55+%2811%29+99988-7766&document=111.444.777-35&address=Rua+Secreta+10&notes=obs+privada&username=u_ana')" 302
 ANA=$(cust_id "Ana Silva")
 ok "  cliente criado" "$(q "SELECT COUNT(*) FROM panel_customers")" 1
 ok "  vínculo gravado" "$(q "SELECT username FROM panel_customers WHERE id=$ANA")" u_ana
-ok "operator cria 2º cliente" "$(t_post toper customers.php customers.php 'action=create&name=Bia+Souza&username=u_bia')" 302
+ok "operator cria 2º cliente" "$(t_post toper customers.php customers.php "action=create&document=$(nextdoc)&name=Bia+Souza&username=u_bia")" 302
 BIA=$(cust_id "Bia Souza")
 inv "usuário já vinculado a outro cliente rejeitado" "name=Outro&username=u_ana" 2
 ok "  mensagem de vínculo" "$(cflash | grep -c 'já está vinculado')" 1
@@ -157,7 +166,7 @@ ok "  mas o pagamento foi gravado" "$(q "SELECT COUNT(*) FROM panel_payments WHE
 ok "renovar sem período rejeitado" "$(pay toper $ANA pay_renew "amount=10&method=pix&paid_at=$TODAY")" 302
 ok "  sem novo pagamento" "$(q "SELECT COUNT(*) FROM panel_payments WHERE customer_id=$ANA AND amount=10.00")" 1
 # cliente sem usuário
-t_post toper customers.php customers.php 'action=create&name=Sem+Usuario' >/dev/null
+t_post toper customers.php customers.php "action=create&document=$(nextdoc)&name=Sem+Usuario" >/dev/null
 SEM=$(cust_id "Sem Usuario")
 ok "renovar cliente sem usuário rejeitado" "$(pay toper $SEM pay_renew "amount=10&method=pix&paid_at=$TODAY&period_to=$(d '+30 days')")" 302
 ok "  nada gravado" "$(npay $SEM)" 0
@@ -177,7 +186,7 @@ ok "  continua 1" "$(npay $BIA)" 1
 
 # --- atomicidade: falha no meio (trigger força erro ao regravar Expiration de u_fail)
 mkuser u_fail "$(utc_end "$(d '+3 days')")"
-t_post toper customers.php customers.php 'action=create&name=Falha+Total&username=u_fail' >/dev/null
+t_post toper customers.php customers.php "action=create&document=$(nextdoc)&name=Falha+Total&username=u_fail" >/dev/null
 FAIL=$(cust_id "Falha Total")
 BEFORE=$(exp_of u_fail)
 trig t_fail radcheck "NEW.username='u_fail' AND NEW.attribute='Expiration'" 'falha forçada' 
@@ -191,7 +200,7 @@ ok "sem o gatilho, a mesma operação funciona" "$(pay toper $FAIL pay_renew "am
 ok "  agora 1 pagamento e validade nova" "$(npay $FAIL)/$(exp_of u_fail)" "1/$(utc_end "$(d '+60 days')")"
 # usuário vinculado que sumiu do radcheck: renovar falha por inteiro
 mkuser u_gone "$(utc_end "$(d '+3 days')")"
-t_post toper customers.php customers.php 'action=create&name=Usuario+Sumiu&username=u_gone' >/dev/null
+t_post toper customers.php customers.php "action=create&document=$(nextdoc)&name=Usuario+Sumiu&username=u_gone" >/dev/null
 GONE=$(cust_id "Usuario Sumiu")
 q "DELETE FROM radcheck WHERE username='u_gone'"
 ok "renovar com usuário removido do RADIUS" "$(pay toper $GONE pay_renew "amount=30&method=pix&paid_at=$TODAY&period_to=$(d '+60 days')")" 302
@@ -202,7 +211,7 @@ ok "  nome atualizado" "$(q "SELECT name FROM panel_customers WHERE id=$GONE")" 
 
 # --- usuário bloqueado não é desbloqueado
 mkuser u_blk "$(utc_end "$(d '+2 days')")"
-t_post toper customers.php customers.php 'action=create&name=Bloqueado&username=u_blk' >/dev/null
+t_post toper customers.php customers.php "action=create&document=$(nextdoc)&name=Bloqueado&username=u_blk" >/dev/null
 BLK=$(cust_id "Bloqueado")
 t_post toper users.php users.php 'action=block&username=u_blk' >/dev/null
 ok "usuário bloqueado (pré-condição)" "$(exp_of u_blk)" "2000-01-01T00:00:00Z"
@@ -231,7 +240,7 @@ ok "desarquivar" "$(q "SELECT archived FROM panel_customers WHERE id=$ANA")" 0
 ok "excluir cliente sem pagamentos" "$(t_post toper customers.php customers.php "action=delete&id=$GONE")" 302
 ok "  cliente removido" "$(q "SELECT COUNT(*) FROM panel_customers WHERE id=$GONE")" 0
 mkuser u_del
-t_post toper customers.php customers.php 'action=create&name=Del&username=u_del' >/dev/null
+t_post toper customers.php customers.php "action=create&document=$(nextdoc)&name=Del&username=u_del" >/dev/null
 t_post toper customers.php customers.php "action=delete&id=$(cust_id Del)" >/dev/null
 ok "  excluir cliente NÃO exclui o usuário RADIUS" "$(q "SELECT COUNT(*) FROM radcheck WHERE username='u_del'")" 1
 ok "  e libera o vínculo" "$(q "SELECT COUNT(*) FROM panel_customers WHERE username='u_del'")" 0
@@ -241,7 +250,7 @@ ok "grants: painel não altera/apaga pagamentos" "$(mariadb -S $T_SOCK -h127.0.0
 
 # --- XSS
 XN='<script>alert(1)</script>'
-ok "XSS no nome (grava escapado, rejeita nada)" "$(t_post toper customers.php customers.php "action=create&name=%3Cscript%3Ealert(1)%3C%2Fscript%3E&email=x%40y.com&notes=%3Cscript%3Ealert(2)%3C%2Fscript%3E")" 302
+ok "XSS no nome (grava escapado, rejeita nada)" "$(t_post toper customers.php customers.php "action=create&document=$(nextdoc)&name=%3Cscript%3Ealert(1)%3C%2Fscript%3E&email=x%40y.com&notes=%3Cscript%3Ealert(2)%3C%2Fscript%3E")" 302
 XID=$(q "SELECT id FROM panel_customers WHERE name LIKE '%script%' LIMIT 1")
 pay toper $XID pay "amount=5&method=pix&paid_at=$TODAY&notes=%3Cscript%3Ealert(3)%3C%2Fscript%3E%22%3E%3Cimg+src%3Dx+onerror%3Dalert(4)%3E" >/dev/null
 for p in customers.php "customers.php?q=script" "customer.php?id=$XID" "customers.php?arch=1"; do
@@ -297,7 +306,7 @@ ok "relatório: 0,10+0,20 do mesmo mês somam R\$ 0,30" "$(echo "$rep" | grep -c
 ok "relatório: pagamento de 400 dias atrás fora da janela" "$(echo "$rep" | grep -c -F 'R$ 100,10')" 0
 # inadimplentes
 mkuser u_late "$(utc_end "$(d '-10 days')")"
-t_post toper customers.php customers.php 'action=create&name=Atrasado&username=u_late' >/dev/null
+t_post toper customers.php customers.php "action=create&document=$(nextdoc)&name=Atrasado&username=u_late" >/dev/null
 q "INSERT INTO radusergroup (username,groupname,priority) VALUES ('u_late','basico',1)"
 LATE=$(cust_id Atrasado)
 ok "inadimplente aparece (N=0)" "$(t_get toper 'customers.php?tab=report' | grep -c "customer.php?id=$LATE\"")" 1
@@ -327,7 +336,7 @@ ok "detalhe: sugere preço do plano (79,90)" "$(t_get toper "customer.php?id=$AN
 # --- auditoria sem dados pessoais
 ok "auditoria: criação/edição/pagamento/exclusão registradas" "$(q "SELECT COUNT(DISTINCT action) FROM panel_audit WHERE action IN ('customer.create','customer.update','customer.payment','customer.delete','customer.archive','customer.price')")" 6
 ok "auditoria sem e-mail" "$(q "SELECT COUNT(*) FROM panel_audit WHERE CONCAT(action,target,IFNULL(detail,'')) LIKE '%@exemplo%' OR detail LIKE '%x@y.com%'")" 0
-ok "auditoria sem telefone/documento/endereço/notas" "$(q "SELECT COUNT(*) FROM panel_audit WHERE CONCAT(target,IFNULL(detail,'')) REGEXP '99988|11999990000|DOC123456789|Rua Secreta|obs privada|segredo'")" 0
+ok "auditoria sem telefone/documento/endereço/notas" "$(q "SELECT COUNT(*) FROM panel_audit WHERE CONCAT(target,IFNULL(detail,'')) REGEXP '99988|11999990000|11144477735|111.444.777-35|Rua Secreta|obs privada|segredo'")" 0
 ok "auditoria sem nome de cliente" "$(q "SELECT COUNT(*) FROM panel_audit WHERE action LIKE 'customer.%' AND CONCAT(target,IFNULL(detail,'')) REGEXP 'Ana|Silva|Bia|Souza'")" 0
 ok "auditoria de edição lista só nomes de campos" "$(q "SELECT detail FROM panel_audit WHERE action='customer.update' AND target='customer#$BIA' ORDER BY id LIMIT 1")" '{"changed":["phone"]}'
 ok "auditoria de pagamento tem id/valor em centavos" "$(q "SELECT COUNT(*) FROM panel_audit WHERE action='customer.payment' AND detail LIKE '%\"amount_cents\":7990%'")" 2
@@ -353,11 +362,41 @@ ok "  removido" "$(q "SELECT COUNT(*) FROM panel_plan_prices")" 0
 ok "operator não remove preço (403)" "$(t_post toper customers.php customers.php 'action=price_delete&plan=basico')" 403
 # --- PDOException não vaza texto SQL (gatilho força erro de banco no INSERT)
 trig t_boom panel_customers "NEW.name='Boom'" 'segredo_sql_interno tabela panel_customers' 
-ok "criação com erro de banco redireciona" "$(t_post toper customers.php customers.php 'action=create&name=Boom')" 302
+ok "criação com erro de banco redireciona" "$(t_post toper customers.php customers.php "action=create&document=$(nextdoc)&name=Boom")" 302
 fl=$(cflash)
 ok "  mensagem genérica" "$(echo "$fl" | grep -c 'Erro ao salvar no banco')" 1
 ok "  sem texto SQL na página" "$(echo "$fl" | grep -c -i -E 'segredo_sql|SQLSTATE|panel_customers|45000')" 0
 ok "  nada gravado" "$(q "SELECT COUNT(*) FROM panel_customers WHERE name='Boom'")" 0
 ok "  erro real foi para o log" "$(grep -c 'segredo_sql_interno' $T_DIR/php.log)" 1
 q "DROP TRIGGER t_boom"
+
+# --- CPF/CNPJ: obrigatório no cadastro, validado, formatado, sem duplicidade
+ok "CPF gravado formatado" "$(q "SELECT document FROM panel_customers WHERE id=$ANA")" "111.444.777-35"
+ok "operator cria cliente com CNPJ" "$(t_post toper customers.php customers.php 'action=create&name=Empresa+Teste&document=11222333000181')" 302
+ok "  CNPJ gravado formatado" "$(q "SELECT document FROM panel_customers WHERE name='Empresa Teste'")" "11.222.333/0001-81"
+N0=$(q "SELECT COUNT(*) FROM panel_customers")
+t_post toper customers.php customers.php 'action=create&name=Duplicado&document=111.444.777-35' >/dev/null
+ok "CPF duplicado rejeitado" "$(q "SELECT COUNT(*) FROM panel_customers")" "$N0"
+ok "  mensagem de duplicidade" "$(cflash | grep -c 'Já existe um cliente')" 1
+ok "edição de cliente legado sem documento continua permitida" "$(t_post toper customer.php customer.php "action=update&id=$BIA&name=Bia+Souza&username=u_bia")" 302
+ok "edição com documento inválido rejeitada" "$(t_post toper customer.php customer.php "action=update&id=$BIA&name=Bia+Souza&document=123&username=u_bia" >/dev/null; q "SELECT document FROM panel_customers WHERE id=$BIA")" ""
+
+# --- endpoint de consulta de CNPJ (sem depender de rede)
+TOKC=$(t_get toper customers.php | tok_of)
+look() { curl -s -o "$T_DIR/look.json" -w '%{http_code}' -b "$T_DIR/jar-$1" "${@:3}" "$T_WEB/cnpj_lookup.php"; }
+ok "lookup: viewer = 403" "$(look tview x -d "csrf=$(t_get tview customers.php | tok_of)&cnpj=11222333000181")" 403
+ok "lookup: GET = 405" "$(look toper x)" 405
+ok "lookup: sem CSRF = 400" "$(look toper x -d 'cnpj=11222333000181')" 400
+ok "lookup: CNPJ inválido = 422 (sem ir à rede)" "$(look toper x -d "csrf=$TOKC&cnpj=11222333000182")" 422
+ok "  resposta JSON de erro" "$(grep -c '"ok":false' "$T_DIR/look.json")" 1
+cat >"$T_DIR/map.php" <<PHP
+<?php require '$ROOT/lib/customers.php';
+\$m = cust_cnpj_map(['razao_social'=>'ACME LTDA','ddd_telefone_1'=>'1133334444','descricao_tipo_de_logradouro'=>'AVENIDA','logradouro'=>'PAULISTA','numero'=>'1','bairro'=>'BELA VISTA','municipio'=>'SAO PAULO','uf'=>'SP','cep'=>'01310100','email'=>'A@B.COM']);
+echo \$m['name'],'|',\$m['phone'],'|',\$m['email'],'|',\$m['address'];
+PHP
+ok "mapeamento da resposta da BrasilAPI" "$(php "$T_DIR/map.php")" "ACME LTDA|(11) 3333-4444|a@b.com|AVENIDA PAULISTA, 1, BELA VISTA, SAO PAULO/SP, CEP 01310100"
+ok "formulário usa JS externo (sem script inline)" "$(t_get toper customers.php | grep -c -E '<script>[^<]|onclick=|style="')" 0
+ok "  carrega customers.js" "$(t_get toper customers.php | grep -c 'customers.js')" 1
+# (a consulta real à BrasilAPI NÃO é testada aqui: depende de rede externa)
+
 summary

@@ -203,7 +203,7 @@ page_header('Cliente #' . $id, 'customers', ['css' => ['customers.css']]);
   <label class="wide">Nome *<input name="name" maxlength="120" required value="<?= h($c['name']) ?>"></label>
   <label class="wide">E-mail<input name="email" type="email" maxlength="120" value="<?= h($c['email']) ?>"></label>
   <label>Telefone<input name="phone" maxlength="30" pattern="[0-9+() \-]*" value="<?= h($c['phone']) ?>"></label>
-  <label>Documento<input name="document" maxlength="30" value="<?= h($c['document']) ?>"></label>
+  <label>CPF / CNPJ<input name="document" maxlength="18" inputmode="numeric" autocomplete="off" data-doc value="<?= h($c['document']) ?>"></label>
   <label class="wide">Usuário RADIUS<input name="username" maxlength="64" pattern="[A-Za-z0-9_.@\-]*" value="<?= h((string)$c['username']) ?>"></label>
   <label class="wide">Endereço<input name="address" maxlength="255" value="<?= h($c['address']) ?>"></label>
   <label class="wide">Observações<input name="notes" maxlength="1000" value="<?= h($c['notes']) ?>"></label>
@@ -222,4 +222,4 @@ page_header('Cliente #' . $id, 'customers', ['css' => ['customers.css']]);
 </form>
 </div>
 <?php endif; ?>
-<?php page_footer();
+<?php page_footer(['js' => ['customers.js']]);
