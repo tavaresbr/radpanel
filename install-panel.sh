@@ -73,7 +73,7 @@ if [[ "${SKIP_APT:-0}" != "1" ]]; then
   echo "==> Pacotes"
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -y
-  apt-get install -y apache2 php libapache2-mod-php php-mysql php-mbstring mariadb-client openssl sudo
+  apt-get install -y apache2 php libapache2-mod-php php-mysql php-mbstring mariadb-client openssl sudo acl
   [[ -n "$PANEL_DOMAIN" && "${SKIP_CERTBOT:-0}" != "1" ]] && apt-get install -y certbot python3-certbot-apache
 fi
 
@@ -216,6 +216,8 @@ if [[ -d "$RADIUS_ETC" ]]; then
     echo "    AVISO: grupo '$RADIUS_USER_GROUP' não existe; criando clients.d só para $WEB_USER."
     install -d -m 2770 -o "$WEB_USER" -g "$WEB_USER" "$RADIUS_ETC/clients.d"
   fi
+  # raddb é root:freerad 750: o Apache precisa só de passagem (ACL x) para chegar em clients.d.
+  bash "$SRC/bin/raddb-access.sh" "$RADIUS_ETC" "$WEB_USER" || { echo "Não consegui liberar o painel para gravar em $RADIUS_ETC/clients.d (veja a mensagem acima)." >&2; exit 1; }
   if ! grep -q '^\$INCLUDE clients.d/' "$RADIUS_ETC/clients.conf" 2>/dev/null; then
     cp -a "$RADIUS_ETC/clients.conf" "$RADIUS_ETC/clients.conf.bak.radpanel.$(date +%Y%m%d-%H%M%S)"
     printf '\n$INCLUDE clients.d/\n' >> "$RADIUS_ETC/clients.conf"

@@ -129,6 +129,7 @@ Isto é um problema do fork, não do painel; considere reportar ao projeto FreeR
 - **Risco aceito no portal:** para conferir a senha do cliente ele lê as senhas em texto claro por uma *view*
   (o FreeRADIUS precisa delas em texto para CHAP). Uma falha de injeção SQL no portal exporia as senhas; por isso só há
   consultas preparadas e o acesso é restrito a essa view.
+- O painel (usuário `www-data`) só tem **passagem** (ACL `--x`) na pasta `raddb` do FreeRADIUS e grava somente em `raddb/clients.d`; não lê certificados, `clients.conf` nem `mods-enabled/sql`. O instalador confere isso (`bin/raddb-access.sh`).
 - Segredos de equipamentos ficam ocultos; revelar exige POST, é só admin e fica na auditoria.
 - Troque o segredo `testing123` do `clients.conf` e apague o usuário `teste` antes de produção.
 - Backup: `sudo /opt/radpanel/bin/backup.sh` (cron diário 03:17, mantém 14, arquivos 600 root).
