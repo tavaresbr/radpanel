@@ -6,7 +6,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 OUT=/tmp/claude-0/runall
 rm -rf "$OUT"; mkdir -p "$OUT"
 
-ALL=(core vouchers reports portal customers coa_clients admin limits radius_rows sqli wireguard update perms setup)
+ALL=(core vouchers reports portal customers coa_clients admin limits radius_rows sqli wireguard update perms setup mikrotik)
 SUITES=("$@"); [ ${#SUITES[@]} -eq 0 ] && SUITES=("${ALL[@]}")
 
 run() {

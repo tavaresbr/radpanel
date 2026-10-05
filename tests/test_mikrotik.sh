@@ -6,7 +6,7 @@ set -u
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 ROOT=$(pwd)
 source tests/harness.sh
-env_up mt 3490 8490 || exit 1
+env_up mt 3510 8510 || exit 1
 trap 'env_down mt' EXIT
 
 cat >"$T_DIR/mt.php" <<'PHP'

@@ -200,7 +200,7 @@ t('hotspot profile', str_contains($s, '/ip hotspot profile set [ find default=ye
 t('ppp aaa', str_contains($s, '/ppp aaa set use-radius=yes accounting=yes interim-update=5m'));
 foreach (explode("\n", trim($s)) as $line) {
   if ($line[0] === '#') { t("comentário sem perigo: $line", !preg_match('/[;$`]/', $line)); continue; }
-  t("prefixo permitido: $line", (bool)preg_match('~^/(radius add|radius incoming set|ip hotspot profile set|ppp aaa set) ~', $line));
+  t("prefixo permitido: $line", (bool)preg_match('~^(/(radius add|radius remove|radius incoming set|ip hotspot profile set|ppp aaa set|ip firewall filter remove) |:do \{ /ip firewall filter add |:log info ")~', $line));
   t("sem ; $ ` na linha: $line", !preg_match('/[;$`\\\\]/', $line));
 }
 $o = mikrotik_script($base + []); 

@@ -146,7 +146,7 @@ function mikrotik_script(array $in): string
     $l = [];
     $l[] = '# RadPanel - script para RouterOS v7 (cole no terminal ou importe com /import)';
     $l[] = '# Revise antes de aplicar. O servidor precisa ter este equipamento cadastrado como cliente RADIUS.';
-    $l[] = sprintf('# Gerador v%d, %s UTC. Pode ser colado de novo: as entradas "%s" são recriadas, não duplicadas.', MT_VERSION, gmdate('Y-m-d H:i'), $tag);
+    $l[] = sprintf('# Gerador v%d, %s UTC. Pode ser colado de novo: as entradas "%s" sao recriadas, nao duplicadas.', MT_VERSION, gmdate('Y-m-d H:i'), $tag);
     // Idempotente: remove a entrada anterior deste painel (identificada pelo comentário) antes de criar.
     $l[] = sprintf('/radius remove [ find comment="%s" ]', $tag);
     $l[] = sprintf(
