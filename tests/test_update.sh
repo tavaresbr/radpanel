@@ -116,4 +116,41 @@ PANEL_DOMAIN='a.b.com'; PORTAL_DOMAIN=''; EMAIL="x'; touch $T/PWNED; echo '@y.co
 [ "$SAVED_PANEL_EMAIL" = "$EMAIL" ] && [ ! -e "$T/PWNED" ] && echo roundtrip-ok
 SH
 ok "install.env: valor hostil não executa e volta idêntico" "$(T=$T bash "$T/rt.sh")" roundtrip-ok
+# ---------- bin/config-set.php (server_ip no config.php)
+CS="php $PWD/bin/config-set.php"
+cfgtest() { printf '%s' "$2" >"$T/cfg-$1.php"; chmod 640 "$T/cfg-$1.php"; }
+cfgtest nokey "<?php
+return [
+    'db_host' => 'localhost',
+    'db_pass' => 'x\$y',
+    'trusted_proxies' => ['127.0.0.1'],
+];
+"
+$CS "$T/cfg-nokey.php" server_ip 150.230.64.46; ok "config-set: sem a chave, insere (rc 0)" "$?" 0
+ok "  valor lido de volta" "$(php -r '$c=require $argv[1]; echo $c["server_ip"];' "$T/cfg-nokey.php")" 150.230.64.46
+ok "  outras chaves preservadas" "$(php -r '$c=require $argv[1]; echo $c["db_pass"],"|",$c["db_host"],"|",$c["trusted_proxies"][0];' "$T/cfg-nokey.php")" 'x$y|localhost|127.0.0.1'
+ok "  modo do arquivo preservado (640)" "$(stat -c %a "$T/cfg-nokey.php")" 640
+cfgtest empty "<?php
+return [
+    'db_host' => 'localhost',
+    'server_ip' => '',
+    'timezone' => 'America/Sao_Paulo',
+];
+"
+$CS "$T/cfg-empty.php" server_ip 203.0.113.9; ok "config-set: chave vazia, troca (rc 0)" "$?" 0
+ok "  valor novo e vizinhas preservadas" "$(php -r '$c=require $argv[1]; echo $c["server_ip"],"|",$c["timezone"];' "$T/cfg-empty.php")" '203.0.113.9|America/Sao_Paulo'
+ok "  só uma linha server_ip" "$(grep -c "'server_ip'" "$T/cfg-empty.php")" 1
+$CS "$T/cfg-empty.php" server_ip radius.exemplo.com.br; ok "  aceita nome de host" "$(php -r '$c=require $argv[1]; echo $c["server_ip"];' "$T/cfg-empty.php")" radius.exemplo.com.br
+cp "$T/cfg-empty.php" "$T/cfg-before.php"
+for bad in "1.2.3.4',x" "1.2.3.4'; system('id'); '" "javascript:alert" "" "a b" "1.2.3.4
+x"; do
+  $CS "$T/cfg-empty.php" server_ip "$bad" 2>/dev/null; rc=$?
+  ok "  recusa valor hostil $(printf %q "$bad")" "$([ $rc -ne 0 ] && echo ok)" ok
+done
+ok "  arquivo intacto após recusas" "$(cmp -s "$T/cfg-empty.php" "$T/cfg-before.php" && echo igual)" igual
+$CS "$T/cfg-empty.php" outra_chave 1.2.3.4 2>/dev/null; ok "  chave não permitida: rc 1" "$?" 1
+echo "nao e php de array" >"$T/cfg-bad.php"; $CS "$T/cfg-bad.php" server_ip 1.2.3.4 2>/dev/null; ok "  formato inesperado: rc 1 e arquivo intacto" "$?$(cat "$T/cfg-bad.php")" "1nao e php de array"
+$CS "$T/nao-existe.php" server_ip 1.2.3.4 2>/dev/null; ok "  arquivo ausente: rc 1" "$?" 1
+ok "  sem sobras .cfg- temporárias" "$(ls -a "$T" | grep -c '^\.cfg-')" 0
+ok "install-panel.sh usa config-set.php" "$(grep -c 'bin/config-set.php' install-panel.sh)" 1
 summary

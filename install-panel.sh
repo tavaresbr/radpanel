@@ -113,11 +113,10 @@ if [[ -f "$CONF_DIR/config.php" ]]; then
   # IP público do servidor (usado nos scripts do MikroTik): se ficou vazio na 1ª instalação, tenta de novo.
   if [[ -z "$(php_get "$CONF_DIR/config.php" server_ip)" ]]; then
     SIP="${SERVER_IP:-$(curl -s --max-time 8 https://api.ipify.org 2>/dev/null || true)}"
-    if [[ "$SIP" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] && grep -q "'server_ip' => ''" "$CONF_DIR/config.php"; then
-      sed -i "s#'server_ip' => ''#'server_ip' => '$SIP'#" "$CONF_DIR/config.php"
-      echo "    server_ip estava vazio: definido como $SIP."
+    if [[ "$SIP" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] && php "$SRC/bin/config-set.php" "$CONF_DIR/config.php" server_ip "$SIP"; then
+      echo "    server_ip definido como $SIP."
     else
-      echo "    AVISO: o IP público do servidor não está definido e não consegui descobrir. Rode de novo com SERVER_IP=SEU_IP sudo -E bash install-panel.sh" >&2
+      echo "    AVISO: o IP público do servidor não está definido e não consegui descobrir. Rode de novo com: sudo SERVER_IP=SEU_IP bash install-panel.sh" >&2
     fi
   fi
 else
