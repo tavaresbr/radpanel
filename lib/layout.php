@@ -11,6 +11,7 @@ const NAV_ITEMS = [
     'reports'   => ['Relatórios', 'viewer'],
     'customers' => ['Clientes', 'operator'],
     'nas'       => ['Equipamentos', 'admin'],
+    'wireguard' => ['VPN WireGuard', 'admin'],
     'tools'     => ['Ferramentas', 'admin'],
     'admins'    => ['Administradores', 'admin'],
     'audit'     => ['Auditoria', 'admin'],

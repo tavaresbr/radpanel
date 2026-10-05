@@ -17,6 +17,7 @@ Criado para o servidor `150.230.64.46` (Ubuntu 24.04, ARM). **Antes de usar em p
 | Clientes | cadastro, pagamentos manuais, "pagar e renovar", relatório financeiro, inadimplentes | operator |
 | Equipamentos | cadastro de NAS, gera `clients.d/*.conf`, botão "Aplicar (reiniciar serviço)" | admin |
 | Ferramentas | gerador de script MikroTik, estado do backup | admin |
+| VPN WireGuard | túnel para roteadores com IP dinâmico (peers, script do MikroTik, cadastro do equipamento) | admin |
 | Administradores | criar/rebaixar/excluir admins, papéis, redefinir senha | admin |
 | Auditoria | quem fez o quê (sem senhas) | admin |
 | **Portal do cliente** | cliente vê plano, validade, consumo e troca a própria senha | (domínio separado) |
@@ -52,6 +53,22 @@ Sem domínio: `ssh -L 8080:127.0.0.1:8080 -i SUA_CHAVE ubuntu@150.230.64.46` e a
 
 Onde fica: código em `/opt/radpanel` (fora da pasta web), configuração em `/etc/radpanel/` (modo 640),
 backups em `/var/backups/radpanel`.
+
+## Roteador com IP dinâmico (túnel WireGuard)
+
+O FreeRADIUS só aceita o equipamento pelo IP cadastrado; se o IP do roteador muda, o hotspot para de autenticar (DDNS não ajuda: o
+FreeRADIUS resolve nomes só ao iniciar). A solução é um túnel WireGuard: o MikroTik (RouterOS 7.1 ou mais novo) liga até o servidor e
+ganha um IP fixo interno `10.99.0.N`; esse é o IP que vai em Equipamentos. RADIUS, accounting e Disconnect passam dentro do túnel.
+
+1. No servidor (uma vez): `sudo bash /opt/radpanel/bin/wg-setup.sh` (instala o WireGuard, cria `wg0` em `10.99.0.1`, abre UDP 51820 e deixa
+   1812/1813 só dentro do túnel).
+2. Na Security List da Oracle: libere **UDP 51820** (as portas 1812/1813 deixam de precisar ser públicas).
+3. No painel, menu **VPN WireGuard**: siga os passos 1 e 2 da tela (o MikroTik gera a própria chave; só a chave **pública** vem para o painel).
+   Cole no MikroTik o script gerado, depois use **Cadastrar** na lista (cria o equipamento com o IP do túnel) e clique em **Aplicar** em Equipamentos.
+4. Em **Ferramentas**, gere o script do RADIUS com servidor `10.99.0.1` e "IP do túnel" `10.99.0.N`.
+
+Não testado em equipamento real: o túnel com MikroTik, `wg-quick` no Ubuntu do servidor e as regras iptables (os testes usam `wg` e `sudo` falsos).
+Se o firewall do MikroTik bloqueia entrada, o script traz (comentada) a regra para o servidor poder derrubar sessões.
 
 ## Limites de uso (franquia, tempo, MAC, simultâneas)
 

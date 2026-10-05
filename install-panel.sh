@@ -113,6 +113,7 @@ return [
     'clients_d_group' => '${RADIUS_USER_GROUP}',
     'radclient' => '/opt/freeradius/bin/radclient',
     'restart_helper' => '${DEST}/bin/panel-restart-radius.sh',
+    'wg_helper' => '${DEST}/bin/panel-wg-peer.sh',
     'server_ip' => '$(curl -s --max-time 4 https://api.ipify.org 2>/dev/null || true)',
     'trusted_proxies' => ['127.0.0.1', '::1'],
 ];

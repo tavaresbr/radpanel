@@ -113,6 +113,12 @@ function mikrotik_validate(array $in): array
     }
     $out['interim'] = (int)$interim;
 
+    $src = trim($str($in['src_address'] ?? ''));
+    if ($src !== '' && filter_var($src, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+        throw new RuntimeException('IP de origem (túnel) inválido: use um IPv4, por exemplo 10.99.0.2.');
+    }
+    $out['src_address'] = $src;
+
     $prof = trim($str($in['hotspot_profile'] ?? ''));
     if ($prof !== '' && !preg_match('/^[A-Za-z0-9_.-]{1,32}$/D', $prof)) {
         throw new RuntimeException('Nome do perfil de hotspot inválido (até 32: letras, números e _ . -).');
@@ -134,9 +140,10 @@ function mikrotik_script(array $in): string
     $l[] = '# RadPanel - script para RouterOS v7 (cole no terminal ou importe com /import)';
     $l[] = '# Revise antes de aplicar. O servidor precisa ter este equipamento cadastrado como cliente RADIUS.';
     $l[] = sprintf(
-        '/radius add service=%s address=%s secret="%s" authentication-port=%d accounting-port=%d timeout=3s comment="RadPanel-%s"',
+        '/radius add service=%s address=%s%s secret="%s" authentication-port=%d accounting-port=%d timeout=3s comment="RadPanel-%s"',
         implode(',', $v['services']),
         $v['server_ip'],
+        $v['src_address'] === '' ? '' : ' src-address=' . $v['src_address'],
         $v['secret'],
         $v['auth_port'],
         $v['acct_port'],
@@ -158,5 +165,55 @@ function mikrotik_script(array $in): string
     if ($ppp) {
         $l[] = sprintf('/ppp aaa set use-radius=yes accounting=%s interim-update=%dm', $acct, $v['interim']);
     }
+    return implode("\n", $l) . "\n";
+}
+
+/**
+ * Script RouterOS v7 do túnel WireGuard até o servidor. Campos: server_ip (IP/host público do servidor),
+ * server_pub (chave pública do servidor), address (10.99.0.N do roteador), name, wg_port (padrão 51820).
+ * A chave privada é criada pelo próprio RouterOS ao criar a interface e nunca sai dele.
+ */
+function mikrotik_wg_script(array $in): string
+{
+    $str = static fn($v): string => is_string($v) ? trim($v) : throw new RuntimeException('Campo inválido.');
+    $host = $str($in['server_ip'] ?? '');
+    if (!mt_valid_host($host)) {
+        throw new RuntimeException('IP/host do servidor inválido.');
+    }
+    $pub = $str($in['server_pub'] ?? '');
+    if (!preg_match('/^[A-Za-z0-9+\/]{42}[AEIMQUYcgkosw048]=$/D', $pub)) {
+        throw new RuntimeException('Chave pública do servidor inválida.');
+    }
+    $addr = $str($in['address'] ?? '');
+    if (!preg_match('/^10\.99\.0\.(?:[2-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-4])$/D', $addr)) {
+        throw new RuntimeException('IP do túnel inválido (10.99.0.2 a 10.99.0.254).');
+    }
+    $name = $str($in['name'] ?? '');
+    if ($name === '') {
+        $name = 'radpanel';
+    }
+    if (!preg_match('/^[A-Za-z0-9_.-]{1,32}$/D', $name)) {
+        throw new RuntimeException('Nome inválido (até 32: letras, números e _ . -).');
+    }
+    $rawPort = $str($in['wg_port'] ?? '');
+    $port = mt_valid_port($rawPort === '' ? '51820' : $rawPort);
+    if ($port === null) {
+        throw new RuntimeException('Porta WireGuard inválida (1 a 65535).');
+    }
+
+    $l = [];
+    $l[] = '# RadPanel - túnel WireGuard (RouterOS v7.1 ou mais novo). Cole no terminal do MikroTik.';
+    $l[] = ':if ([:len [/interface wireguard find name=wg-radius]] = 0) do={ /interface wireguard add name=wg-radius listen-port=13231 comment="RadPanel-' . $name . '" }';
+    $l[] = ':if ([:len [/interface wireguard peers find interface=wg-radius]] = 0) do={ ' . sprintf(
+        '/interface wireguard peers add interface=wg-radius public-key="%s" endpoint-address=%s endpoint-port=%d allowed-address=10.99.0.1/32 persistent-keepalive=25s comment="RadPanel servidor"',
+        $pub,
+        $host,
+        $port
+    ) . ' }';
+    $l[] = sprintf(':if ([:len [/ip address find address="%s/24"]] = 0) do={ /ip address add address=%s/24 interface=wg-radius comment="RadPanel tunel" }', $addr, $addr);
+    $l[] = '# Se o firewall do roteador bloqueia entrada (chain=input), permita o servidor (necessário para derrubar sessões):';
+    $l[] = '# /ip firewall filter add chain=input in-interface=wg-radius src-address=10.99.0.1 action=accept place-before=0';
+    $l[] = '# Chave pública DESTE roteador (a mesma que você colou no painel):';
+    $l[] = ':put [/interface wireguard get wg-radius public-key]';
     return implode("\n", $l) . "\n";
 }

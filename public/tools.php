@@ -26,7 +26,7 @@ $err = '';
 $in = [
     'server_ip' => (string)cfg('server_ip', ''), 'secret' => '', 'name' => '', 'services' => ['hotspot', 'ppp'],
     'auth_port' => '1812', 'acct_port' => '1813', 'accounting' => true, 'interim' => '5',
-    'incoming' => true, 'coa_port' => '3799', 'hotspot_profile' => '',
+    'incoming' => true, 'coa_port' => '3799', 'hotspot_profile' => '', 'src_address' => '',
 ];
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
@@ -39,6 +39,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             'accounting' => !empty($_POST['accounting']), 'interim' => (string)($_POST['interim'] ?? ''),
             'incoming' => !empty($_POST['incoming']), 'coa_port' => (string)($_POST['coa_port'] ?? ''),
             'hotspot_profile' => (string)($_POST['hotspot_profile'] ?? ''),
+            'src_address' => (string)($_POST['src_address'] ?? ''),
         ];
         try {
             $script = mikrotik_script($in);
@@ -75,6 +76,7 @@ em Equipamentos. Sintaxe RouterOS 7.x; revise antes de aplicar.</p>
     <label>Segredo<input name="secret" required minlength="8" maxlength="64" autocomplete="new-password"></label>
     <label>Nome do equipamento<input name="name" maxlength="32" placeholder="loja-centro" value="<?= h((string)$in['name']) ?>"></label>
     <label>Perfil de hotspot (vazio = padrão)<input name="hotspot_profile" maxlength="32" value="<?= h((string)$in['hotspot_profile']) ?>"></label>
+    <label>IP do túnel WireGuard deste roteador (vazio = sem túnel)<input name="src_address" maxlength="15" placeholder="10.99.0.2" value="<?= h((string)$in['src_address']) ?>"></label>
   </div>
   <div class="row gap">
     <label>Porta de autenticação<input name="auth_port" class="narrow" value="<?= h((string)$in['auth_port']) ?>"></label>
