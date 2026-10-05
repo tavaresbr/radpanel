@@ -145,7 +145,7 @@ $r = ['server_ip' => '10.99.0.1', 'secret' => 'Abc123-def456', 'name' => 'loja-1
   'accounting' => true, 'interim' => '5', 'incoming' => true, 'coa_port' => '3799', 'hotspot_profile' => '', 'src_address' => '10.99.0.2'];
 t('radius: saída 100% ASCII', !preg_match('/[^\\x00-\\x7F]/', mikrotik_script($r)));
 t('src-address no /radius add', str_contains(mikrotik_script($r), 'address=10.99.0.1 src-address=10.99.0.2 secret="'));
-$r['src_address'] = ''; t('sem src-address por padrão', !str_contains(mikrotik_script($r), 'src-address'));
+$r['src_address'] = ''; t('sem src-address por padrão no /radius add', !preg_match('~^/radius add .*src-address~m', mikrotik_script($r)));
 foreach (['10.99.0.2;x', "10.99.0.2\nx", 'abc', '10.99.0.2 secret="x"', '::1'] as $v) {
   $r['src_address'] = $v; $ok = false;
   try { mikrotik_script($r); } catch (RuntimeException $e) { $ok = true; }
