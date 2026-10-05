@@ -60,6 +60,7 @@ Menu **Ativar equipamento**: leva um MikroTik, passo a passo, até autenticar ne
 1. túnel WireGuard (chave pública do roteador; só para IP dinâmico) · 2. conexão do túnel (confere o último contato) · 3. cadastro e segredo (sugerido, aleatório) ·
 4. aplicar no servidor (reinicia o FreeRADIUS, validado antes) · 5. script do RADIUS para colar no roteador · 6. teste: "ativo" quando o roteador registra a primeira sessão.
 Recriou a interface `wg-radius` no MikroTik (a chave pública mudou)? Na etapa 1 use **Trocar a chave**: o IP do túnel continua o mesmo.
+Embolou? **Apagar e começar do zero** (na lista do assistente e no rodapé de cada etapa) remove de uma vez o túnel, o cadastro e o arquivo do equipamento e reinicia o FreeRADIUS para ele esquecê-lo.
 Para IP fixo as etapas 1 e 2 não existem. Os equipamentos em andamento aparecem na tela inicial do assistente, com a etapa em que pararam.
 Observação: "ativo" depende de uma sessão com contabilidade (accounting) ligada, então conecte um aparelho ao hotspot e entre com um usuário do painel.
 

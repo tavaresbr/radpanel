@@ -66,6 +66,13 @@ const sql = (q) => execFileSync('mariadb', ['-S', process.env.T_SOCK, 'radius', 
   sql("INSERT INTO radacct (acctsessionid, acctuniqueid, username, nasipaddress, acctstarttime, acctupdatetime) VALUES ('b1','u-browser','teste','" + (m ? m[1] : '0.0.0.0') + "',NOW(),NOW())");
   await Promise.all([page.waitForNavigation(), page.click('a:has-text("Verificar de novo")')]);
   check('etapa 6: equipamento ativo', (await body()).includes('equipamento ativo'));
+  // apagar e começar do zero (o diálogo de confirmação é aceito)
+  await page.goto(base + '/setup.php');
+  const row = page.locator('tr', { hasText: 'BR1' });
+  check('lista tem o BR1 com o botão Apagar', (await row.locator('button:has-text("Apagar e começar do zero")').count()) === 1);
+  await Promise.all([page.waitForNavigation(), row.locator('button:has-text("Apagar e começar do zero")').click()]);
+  check('mensagem de apagado', (await body()).includes('BR1 apagado'));
+  check('BR1 sumiu da lista', (await page.locator('tr', { hasText: 'BR1' }).count()) === 0);
   check('sem erro de CSP nem de JavaScript', errors.length === 0);
   if (errors.length) console.log(errors.join('\n'));
   await browser.close();

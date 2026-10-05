@@ -26,6 +26,7 @@ SH
 cat >"$T_DIR/fakerestart" <<SH
 #!/bin/bash
 echo "restart" >>"$T_DIR/restart.log"
+[ -e "$T_DIR/restart.fail" ] && { echo "Falha ao reiniciar o freeradius."; exit 2; }
 echo "Configuração válida; freeradius reiniciado."
 SH
 cat >"$T_DIR/fakesudo" <<SH
@@ -195,6 +196,58 @@ mv "$T_DIR/config.php.bak" "$T_DIR/config.php"; touch "$T_DIR/config.php"   # mt
 sleep 3
 B=$(page 'setup.php?name=RB09&mode=wg&step=2')
 ok "server_ip preenchido: sem o aviso" "$(echo "$B" | grep -c 'falta configurar')" 0
+
+# ---------- apagar e começar do zero
+B=$(page setup.php)
+ok "lista: botão Apagar em cada equipamento (RB09, RB10, FX1)" "$(echo "$B" | grep -c 'value="reset"')" 3
+ok "etapa: botão Apagar no rodapé" "$(page 'setup.php?name=RB09&mode=wg&step=5' | grep -c 'value="reset"')" 1
+ok "operator não consegue apagar (403)" "$(t_post toper dashboard.php setup.php 'action=reset&name=RB10')" 403
+ok "  peer RB10 continua" "$(test -f "$WGD/peers.d/RB10.conf" && echo sim)" sim
+ok "sem CSRF: 400" "$(curl -s -b "$T_DIR/jar-tadmin" -o /dev/null -w '%{http_code}' -d 'action=reset&name=RB10' "$T_WEB/setup.php")" 400
+ok "  e nada foi apagado" "$(test -f "$WGD/peers.d/RB10.conf" && echo sim)" sim
+ok "nome inexistente: erro" "$(ploc setup.php setup.php 'action=reset&name=NAOEXISTE')" "setup.php?name=NAOEXISTE&mode=wg"
+ok "  aviso" "$(flashes 'setup.php?name=NAOEXISTE' | grep -c 'não encontrado')" 1
+ok "nome hostil: recusado" "$(ploc setup.php setup.php 'action=reset&name=a%3Bb')" "setup.php"
+ok "  mesmo com nome '../x'" "$(ploc setup.php setup.php 'action=reset&name=..%2Fx')" "setup.php"
+
+: >"$T_DIR/restart.log"
+ok "reset de peer SEM cadastro (RB10): volta à lista" "$(ploc setup.php setup.php 'action=reset&name=RB10')" "setup.php"
+ok "  peer removido" "$(test -f "$WGD/peers.d/RB10.conf" && echo existe || echo removido)" removido
+ok "  sem reinício (não havia cadastro)" "$(wc -l <"$T_DIR/restart.log")" 0
+ok "  mensagem 'apagado (túnel)'" "$(flashes setup.php | grep -c 'RB10 apagado (túnel)')" 1
+ok "  auditoria setup.reset" "$(q "SELECT COUNT(*) FROM panel_audit WHERE action='setup.reset' AND target='RB10'")" 1
+
+ok "RB09 completo antes: peer, nas e arquivo existem" "$(test -f "$WGD/peers.d/RB09.conf" && echo p)$(q "SELECT COUNT(*) FROM nas WHERE shortname='RB09'")$(test -f "$T_DIR/raddb/clients.d/RB09.conf" && echo f)" p1f
+: >"$T_DIR/restart.log"
+ok "reset do equipamento completo (RB09): volta à lista" "$(ploc setup.php setup.php 'action=reset&name=RB09')" "setup.php"
+ok "  peer removido" "$(test -f "$WGD/peers.d/RB09.conf" && echo existe || echo removido)" removido
+ok "  cadastro removido" "$(q "SELECT COUNT(*) FROM nas WHERE shortname='RB09'")" 0
+ok "  arquivo clients.d removido" "$(test -f "$T_DIR/raddb/clients.d/RB09.conf" && echo existe || echo removido)" removido
+ok "  serviço reiniciado 1x para esquecer o cliente" "$(wc -l <"$T_DIR/restart.log")" 1
+ok "  mensagem 'apagado (túnel, cadastro e arquivo)'" "$(flashes setup.php | grep -c 'RB09 apagado (túnel, cadastro e arquivo)')" 1
+ok "  auditoria setup.reset e nas.delete" "$(q "SELECT COUNT(*) FROM panel_audit WHERE action='setup.reset' AND target='RB09'")$(q "SELECT COUNT(*) FROM panel_audit WHERE action='nas.delete' AND target='RB09'")" 11
+ok "  auditoria sem chave nem segredo" "$(q "SELECT COUNT(*) FROM panel_audit WHERE detail LIKE '%$K3%' OR detail LIKE '%$SEC%'")" 0
+ok "  some da lista" "$(page setup.php | grep -c '<td>RB09</td>')" 0
+ok "recomeçar com o mesmo nome: etapa 1" "$(ploc setup.php setup.php 'action=start&name=RB09&mode=wg')" "setup.php?name=RB09&mode=wg&step=1"
+K7=$(key)
+ok "  novo peer reaproveita o IP .2" "$(ploc setup.php setup.php "action=peer&name=RB09&mode=wg&pubkey=$(enc "$K7")")$(grep -c 'AllowedIPs = 10.99.0.2/32' "$WGD/peers.d/RB09.conf")" "setup.php?name=RB09&mode=wg&step=21"
+ok "  e já pode cadastrar de novo (sem 'já existe')" "$(q "SELECT COUNT(*) FROM nas WHERE shortname='RB09' OR nasname='10.99.0.2'")" 0
+
+# arquivo clients.d que não pode ser removido: o cadastro é MANTIDO e o erro é claro
+if chattr +i "$T_DIR/raddb/clients.d/FX1.conf" 2>/dev/null; then
+  ok "arquivo imutável: reset recusa e volta" "$(ploc setup.php setup.php 'action=reset&name=FX1')" "setup.php?name=FX1&mode=wg"
+  ok "  erro claro" "$(flashes 'setup.php?name=FX1' | grep -c 'Não consegui remover o arquivo')" 1
+  ok "  cadastro mantido" "$(q "SELECT COUNT(*) FROM nas WHERE shortname='FX1'")" 1
+  chattr -i "$T_DIR/raddb/clients.d/FX1.conf"
+else
+  echo "AVISO: chattr indisponível; caso 'arquivo não removível' NÃO testado"
+fi
+# reinício falha: apaga mesmo assim e avisa
+touch "$T_DIR/restart.fail"
+ok "reinício falha: reset volta à lista" "$(ploc setup.php setup.php 'action=reset&name=FX1')" "setup.php"
+ok "  cadastro apagado mesmo assim" "$(q "SELECT COUNT(*) FROM nas WHERE shortname='FX1'")" 0
+ok "  aviso de que o reinício falhou" "$(flashes setup.php | grep -c 'reinício do servidor falhou')" 1
+rm -f "$T_DIR/restart.fail"
 
 # ---------- helper de WireGuard quebrado: a lista ainda abre e a etapa mostra o erro sem vazar caminho
 sed -i "s#'wg_helper' => '[^']*'#'wg_helper' => '/nao/existe'#" "$T_DIR/config.php"

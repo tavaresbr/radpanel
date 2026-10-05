@@ -36,13 +36,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             if ($short === false) {
                 throw new RuntimeException('Equipamento não encontrado.');
             }
-            // Primeiro o arquivo de cliente: se não der para removê-lo, o NAS continuaria aceito pelo servidor
-            // mesmo sumindo da lista; então não apaga o cadastro.
-            if (!clients_d_remove((string)$short) && clients_d_exists((string)$short)) {
-                throw new RuntimeException('Não consegui remover o arquivo clients.d/' . $short . '.conf; o equipamento foi mantido.');
-            }
-            $pdo->prepare('DELETE FROM nas WHERE id = ?')->execute([$id]);
-            audit('nas.delete', (string)$short);
+            nas_remove($pdo, (string)$short);
             flash('Equipamento removido. Clique em "Aplicar (reiniciar serviço)" para o servidor deixar de aceitá-lo.');
         } elseif ($action === 'apply') {
             $res = nas_apply_all($pdo);

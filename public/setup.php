@@ -24,6 +24,14 @@ function setup_url(string $name = '', string $mode = '', int $step = 0): string
     return 'setup.php' . ($q ? '?' . implode('&', $q) : '');
 }
 
+/** Formulário "Apagar e começar do zero" (remove túnel, cadastro e arquivo; reinicia o serviço). */
+function setup_reset_form(string $name): string
+{
+    return '<form method="post" class="inline" data-confirm="Apagar o equipamento ' . h($name) . ' e começar do zero? Isso remove o túnel, o cadastro e o arquivo do servidor e reinicia o FreeRADIUS por alguns instantes.">'
+        . csrf_field() . '<input type="hidden" name="action" value="reset"><input type="hidden" name="name" value="' . h($name) . '">'
+        . '<button class="danger">Apagar e começar do zero</button></form>';
+}
+
 $name = trim((string)($_GET['name'] ?? $_POST['name'] ?? ''));
 $modeIn = trim((string)($_GET['mode'] ?? $_POST['mode'] ?? ''));
 if ($name !== '' && !clients_d_valid_name($name)) {
@@ -56,6 +64,37 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $ip = wg_peer_add($name, trim((string)($_POST['pubkey'] ?? '')));
             audit('setup.peer', $name, ['ip' => $ip]);
             redirect(setup_url($name, 'wg', 2));
+        } elseif ($action === 'reset') {
+            if (!$s['peer'] && !$s['nas']) {
+                throw new RuntimeException('Equipamento não encontrado.');
+            }
+            $done = [];
+            if ($s['peer']) {
+                wg_peer_remove($name);
+                $done[] = 'túnel';
+            }
+            if ($s['nas']) {
+                nas_remove($pdo, $name);
+                $done[] = 'cadastro e arquivo';
+            }
+            audit('setup.reset', $name, ['removido' => implode(', ', $done)]);
+            $msg = 'Equipamento ' . $name . ' apagado (' . implode(', ', $done) . '). Pode recomeçar.';
+            $type = 'ok';
+            if ($s['nas']) {
+                // O FreeRADIUS só esquece o cliente depois de reiniciar.
+                try {
+                    $res = nas_apply_all($pdo);
+                    if (!$res['ok']) {
+                        $msg .= ' Atenção: o reinício do servidor falhou (' . $res['message'] . '); use "Aplicar" em Equipamentos.';
+                        $type = 'err';
+                    }
+                } catch (RuntimeException $e) {
+                    $msg .= ' Atenção: não consegui reiniciar o servidor (' . friendly_error($e, 'setup') . '); use "Aplicar" em Equipamentos.';
+                    $type = 'err';
+                }
+            }
+            flash($msg, $type);
+            redirect('setup.php');
         } elseif ($action === 'rekey') {
             if ($s['mode'] !== 'wg' || !$s['peer']) {
                 throw new RuntimeException('Este equipamento ainda não está no túnel; use "Adicionar ao túnel".');
@@ -145,13 +184,14 @@ Em cada etapa o painel confere o que já está feito.</p>
   <p class="muted">Nenhum ainda.</p>
 <?php else: ?>
 <div class="scroll"><table>
-  <tr><th>Nome</th><th>Tipo</th><th>Situação</th><th></th></tr>
+  <tr><th>Nome</th><th>Tipo</th><th>Situação</th><th></th><th></th></tr>
   <?php foreach ($list as $d): ?>
   <tr>
     <td><?= h($d['name']) ?></td>
     <td><?= $d['mode'] === 'wg' ? 'Túnel' : 'IP fixo' ?></td>
     <td><?= $d['active'] ? '<span class="tag good">ativo</span>' : '<span class="tag">etapa ' . (int)$d['next'] . ' de 6: ' . h(SETUP_STEPS[$d['next']]) . '</span>' ?></td>
     <td><a href="<?= h(setup_url($d['name'], $d['mode'], $d['next'])) ?>"><?= $d['active'] ? 'Rever' : 'Continuar' ?></a></td>
+    <td><?= setup_reset_form($d['name']) ?></td>
   </tr>
   <?php endforeach; ?>
 </table></div>
@@ -365,4 +405,5 @@ if ($step > min(array_keys($steps))) {
         echo '<p><a href="' . h(setup_url($name, $mode, $prev)) . '">← Voltar</a></p>';
     }
 }
+echo '<p>' . setup_reset_form($name) . '</p>';
 page_footer(['js' => []]);

@@ -79,3 +79,23 @@ function nas_apply_all(PDO $pdo): array
     audit('nas.apply', 'radius', ['ok' => $res['ok'], 'clients' => count($all)]);
     return $res;
 }
+
+/**
+ * Remove o equipamento pelo nome curto: primeiro o arquivo clients.d (se não der para removê-lo o NAS continuaria aceito
+ * pelo servidor, então o cadastro é mantido e a exceção explica), depois a linha em `nas`. Retorna false se não existia.
+ */
+function nas_remove(PDO $pdo, string $short): bool
+{
+    $st = $pdo->prepare('SELECT id FROM nas WHERE shortname = ?');
+    $st->execute([$short]);
+    $id = $st->fetchColumn();
+    if ($id === false) {
+        return false;
+    }
+    if (!clients_d_remove($short) && clients_d_exists($short)) {
+        throw new RuntimeException('Não consegui remover o arquivo clients.d/' . $short . '.conf; o equipamento foi mantido.');
+    }
+    $pdo->prepare('DELETE FROM nas WHERE id = ?')->execute([(int)$id]);
+    audit('nas.delete', $short);
+    return true;
+}
