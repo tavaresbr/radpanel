@@ -54,6 +54,14 @@ Sem domínio: `ssh -L 8080:127.0.0.1:8080 -i SUA_CHAVE ubuntu@150.230.64.46` e a
 Onde fica: código em `/opt/radpanel` (fora da pasta web), configuração em `/etc/radpanel/` (modo 640),
 backups em `/var/backups/radpanel`.
 
+## Ativar um equipamento (assistente)
+
+Menu **Ativar equipamento**: leva um MikroTik, passo a passo, até autenticar neste servidor. Em cada etapa o painel confere o estado real e só libera a próxima:
+1. túnel WireGuard (chave pública do roteador; só para IP dinâmico) · 2. conexão do túnel (confere o último contato) · 3. cadastro e segredo (sugerido, aleatório) ·
+4. aplicar no servidor (reinicia o FreeRADIUS, validado antes) · 5. script do RADIUS para colar no roteador · 6. teste: "ativo" quando o roteador registra a primeira sessão.
+Para IP fixo as etapas 1 e 2 não existem. Os equipamentos em andamento aparecem na tela inicial do assistente, com a etapa em que pararam.
+Observação: "ativo" depende de uma sessão com contabilidade (accounting) ligada, então conecte um aparelho ao hotspot e entre com um usuário do painel.
+
 ## Atualizar (depois que há versão nova no git)
 
 ```bash

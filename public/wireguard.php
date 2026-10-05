@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require __DIR__ . '/../lib/bootstrap.php';
 require __DIR__ . '/../lib/layout.php';
-require __DIR__ . '/../lib/clients_d.php';
+require __DIR__ . '/../lib/nas.php';
 require __DIR__ . '/../lib/wireguard.php';
 require __DIR__ . '/../lib/mikrotik.php';
 require_role('admin');
@@ -45,25 +45,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             if (($known[$name] ?? null) !== $ip) {
                 throw new RuntimeException('Roteador não encontrado no túnel.');
             }
-            if (strlen($secret) < 8 || strlen($secret) > 60 || !preg_match('/^[\x21-\x7e]+$/', $secret)
-                || str_contains($secret, '${') || str_contains($secret, '%{')) {
-                throw new RuntimeException('Segredo: de 8 a 60 caracteres, sem espaços, sem "${" nem "%{".');
-            }
-            $st = $pdo->prepare('SELECT COUNT(*) FROM nas WHERE nasname = ? OR shortname = ?');
-            $st->execute([$ip, $name]);
-            if ((int)$st->fetchColumn() > 0) {
-                throw new RuntimeException('Já existe equipamento com esse IP ou nome.');
-            }
-            $pdo->prepare('INSERT INTO nas (nasname, shortname, type, secret, description) VALUES (?, ?, "other", ?, ?)')
-                ->execute([$ip, $name, $secret, 'WireGuard']);
-            audit('nas.add', $name, ['ip' => $ip, 'via' => 'wireguard']);
-            try {
-                clients_d_write($name, $ip, $secret);
+            $r = nas_register($pdo, $name, $ip, $secret, 'WireGuard', ['via' => 'wireguard']);
+            if ($r['file_ok']) {
                 flash_redirect('Equipamento cadastrado. Agora vá em Equipamentos e clique em "Aplicar (reiniciar serviço)".', 'ok', 'wireguard.php');
-            } catch (RuntimeException $e) {
-                flash_redirect('Cadastrado, mas o arquivo clients.d não foi gravado: ' . friendly_error($e, 'nas')
-                    . ' Use "Aplicar" em Equipamentos, que regrava os arquivos.', 'err', 'wireguard.php');
             }
+            flash_redirect('Cadastrado, mas o arquivo clients.d não foi gravado: ' . $r['file_error']
+                . ' Use "Aplicar" em Equipamentos, que regrava os arquivos.', 'err', 'wireguard.php');
         } else {
             throw new RuntimeException('Ação desconhecida.');
         }

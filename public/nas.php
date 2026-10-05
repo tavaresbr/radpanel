@@ -2,29 +2,10 @@
 declare(strict_types=1);
 require __DIR__ . '/../lib/bootstrap.php';
 require __DIR__ . '/../lib/layout.php';
-require __DIR__ . '/../lib/clients_d.php';
+require __DIR__ . '/../lib/nas.php';
 require_role('admin');
 
 $pdo = db();
-
-function valid_nasname(string $n): bool
-{
-    // IPv4, IPv4/CIDR, IPv6 ou nome de host simples.
-    if (!preg_match('/^[A-Za-z0-9.:\/-]{1,128}$/', $n)) {
-        return false;
-    }
-    // Rede larga demais abriria o RADIUS a qualquer origem que saiba o segredo (ex.: 0.0.0.0/0).
-    if (preg_match('~^[0-9.]+/([0-9]{1,2})$~', $n, $m) && (int)$m[1] < 24) {
-        return false;
-    }
-    if (preg_match('~^[0-9a-fA-F:]+/([0-9]{1,3})$~', $n, $m) && (int)$m[1] < 64) {
-        return false;
-    }
-    if (in_array($n, ['0.0.0.0', '::', '0.0.0.0/0', '::/0'], true)) {
-        return false;
-    }
-    return true;
-}
 
 /** Valor entre aspas para o clients.conf, com escape de \ e ". */
 function conf_quote(string $v): string
@@ -39,35 +20,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $action = post('action');
     try {
         if ($action === 'add') {
-            $nasname = post('nasname');
             $short = post('shortname');
-            $secret = (string)($_POST['secret'] ?? '');
-            $desc = post('description');
-            if (!valid_nasname($nasname)) {
-                throw new RuntimeException('IP/host inválido.');
-            }
-            if (!clients_d_valid_name($short)) {
-                throw new RuntimeException('Nome curto inválido (até 32: letras, números e _ . -; não pode começar com ponto ou hífen).');
-            }
-            if (strlen($secret) < 8 || strlen($secret) > 60 || !preg_match('/^[\x21-\x7e]+$/', $secret)) {
-                throw new RuntimeException('Segredo: de 8 a 60 caracteres, sem espaços.');
-            }
-            if (str_contains($secret, '${') || str_contains($secret, '%{')) {
-                throw new RuntimeException('Segredo não pode conter "${" nem "%{" (o FreeRADIUS os trata como expansão).');
-            }
-            $st = $pdo->prepare('SELECT COUNT(*) FROM nas WHERE nasname = ? OR shortname = ?');
-            $st->execute([$nasname, $short]);
-            if ((int)$st->fetchColumn() > 0) {
-                throw new RuntimeException('Já existe equipamento com esse IP ou nome.');
-            }
-            $pdo->prepare('INSERT INTO nas (nasname, shortname, type, secret, description) VALUES (?, ?, "other", ?, ?)')
-                ->execute([$nasname, $short, $secret, mb_substr($desc, 0, 200)]);
-            audit('nas.add', $short, ['ip' => $nasname]);
-            try {
-                clients_d_write($short, $nasname, $secret);
+            $r = nas_register($pdo, $short, post('nasname'), (string)($_POST['secret'] ?? ''), post('description'));
+            if ($r['file_ok']) {
                 flash('Equipamento cadastrado e arquivo clients.d gerado. Clique em "Aplicar (reiniciar serviço)" para o servidor passar a aceitá-lo.');
-            } catch (Throwable $e) {
-                flash('Equipamento cadastrado, mas o arquivo clients.d não foi gravado: ' . friendly_error($e, 'nas')
+            } else {
+                flash('Equipamento cadastrado, mas o arquivo clients.d não foi gravado: ' . $r['file_error']
                     . ' Corrija e use "Aplicar", que regrava os arquivos.', 'err');
             }
         } elseif ($action === 'delete') {
@@ -87,12 +45,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             audit('nas.delete', (string)$short);
             flash('Equipamento removido. Clique em "Aplicar (reiniciar serviço)" para o servidor deixar de aceitá-lo.');
         } elseif ($action === 'apply') {
-            $all = $pdo->query('SELECT nasname, shortname, secret FROM nas')->fetchAll();
-            foreach ($all as $n) {
-                clients_d_write((string)$n['shortname'], (string)$n['nasname'], (string)$n['secret']);
-            }
-            $res = clients_d_apply();
-            audit('nas.apply', 'radius', ['ok' => $res['ok'], 'clients' => count($all)]);
+            $res = nas_apply_all($pdo);
             flash($res['message'], $res['ok'] ? 'ok' : 'err');
         } elseif ($action === 'reveal') {
             audit('nas.reveal', 'todos');

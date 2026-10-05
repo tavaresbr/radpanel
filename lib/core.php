@@ -303,3 +303,18 @@ function random_code(int $len, string $alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ234567
     }
     return $out;
 }
+
+/** "3 min", "2 h", "1 dia" a partir de segundos. */
+function fmt_age(int $sec): string
+{
+    if ($sec < 120) {
+        return $sec . ' s';
+    }
+    if ($sec < 7200) {
+        return intdiv($sec, 60) . ' min';
+    }
+    if ($sec < 172800) {
+        return intdiv($sec, 3600) . ' h';
+    }
+    return intdiv($sec, 86400) . ' dias';
+}

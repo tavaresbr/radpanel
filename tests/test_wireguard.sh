@@ -65,6 +65,9 @@ ok "syncconf foi chamado" "$(grep -c '^wg syncconf wg0' "$T_DIR/wg.log" | awk '{
 ok "list mostra 2 linhas" "$(hp list | wc -l)" 2
 ok "list formato" "$(hp list | head -1)" "loja-a 10.99.0.2 $K1"
 ok "pubkey" "$(hp pubkey)" "SERVERPUBKEYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+ok "status: sem handshake = 0" "$(hp status | head -1)" "loja-a 10.99.0.2 0"
+ok "status: 2 linhas" "$(hp status | wc -l)" 2
+out=$(hp status extra 2>&1); rc=$?; ok "status com args: rc 64" "$rc" 64
 ok "remove a" "$(hp remove loja-a)" OK
 ok "wg0.conf sem a" "$(grep -c "$K1" "$WGD/wg0.conf")" 0
 ok "novo peer reaproveita IP livre .2" "$(hp add loja-c "$K3")" "OK 10.99.0.2"
@@ -86,7 +89,7 @@ out=$(hp add p254 "$(key)"); rc=$?; ok "254º recusado" "$rc" 1
 rm -f "$WGD"/peers.d/*.conf; hp remove x >/dev/null 2>&1; : >"$T_DIR/wg.log"
 
 # sudoers
-ok "sudoers: add/remove/list/pubkey só com o helper" "$(grep -c 'NOPASSWD: /opt/radpanel/bin/panel-wg-peer.sh add \*, /opt/radpanel/bin/panel-wg-peer.sh remove \*, /opt/radpanel/bin/panel-wg-peer.sh list, /opt/radpanel/bin/panel-wg-peer.sh pubkey$' server-config/sudoers.radpanel)" 1
+ok "sudoers: add/remove/list/pubkey/status só com o helper" "$(grep -c 'NOPASSWD: /opt/radpanel/bin/panel-wg-peer.sh add \*, /opt/radpanel/bin/panel-wg-peer.sh remove \*, /opt/radpanel/bin/panel-wg-peer.sh list, /opt/radpanel/bin/panel-wg-peer.sh pubkey, /opt/radpanel/bin/panel-wg-peer.sh status$' server-config/sudoers.radpanel)" 1
 
 # ---------- gerador de script (PHP CLI)
 PUBS=$(printf 'A%.0s' $(seq 1 43))=

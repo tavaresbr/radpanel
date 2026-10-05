@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 /** Páginas do menu: arquivo => [rótulo, papel mínimo]. Só aparecem se o arquivo existir. */
 const NAV_ITEMS = [
+    'setup'     => ['Ativar equipamento', 'admin'],
     'dashboard' => ['Início', 'viewer'],
     'users'     => ['Usuários', 'viewer'],
     'vouchers'  => ['Vouchers', 'operator'],

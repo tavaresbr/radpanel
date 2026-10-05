@@ -5,6 +5,7 @@
 #   panel-wg-peer.sh remove NOME              -> "OK"
 #   panel-wg-peer.sh list                     -> uma linha por peer: "NOME IP CHAVE_PUBLICA"
 #   panel-wg-peer.sh pubkey                   -> chave pública do servidor
+#   panel-wg-peer.sh status                   -> uma linha por peer: "NOME IP EPOCH_DO_ULTIMO_HANDSHAKE" (0 = nunca conectou)
 # Só a chave PÚBLICA do roteador passa por aqui; a privada nunca sai do MikroTik.
 # Estado: /etc/wireguard/peers.d/NOME.conf (um bloco [Peer] cada) + wg0.base (bloco [Interface]).
 # wg0.conf é regenerado (base + peers) e aplicado com "wg syncconf", sem derrubar quem já está conectado.
@@ -91,10 +92,22 @@ case "$cmd" in
     done
     exit 0
     ;;
+  status)
+    [ $# -eq 1 ] || { echo "uso: status"; exit 64; }
+    hs=""
+    if [ -x "$WG_BIN" ]; then hs=$("$WG_BIN" show "$WG_IFACE" latest-handshakes 2>/dev/null || true); fi
+    for o in "$PEERS"/*.conf; do
+      [ -f "$o" ] || continue
+      k=$(peer_key "$o")
+      t=$(printf '%s\n' "$hs" | awk -v k="$k" '$1 == k { print $2; exit }')
+      echo "$(basename "$o" .conf) $(peer_ip "$o") ${t:-0}"
+    done
+    exit 0
+    ;;
   pubkey)
     [ $# -eq 1 ] || { echo "uso: pubkey"; exit 64; }
     [ -s "$WG_DIR/server.pub" ] || { echo "server.pub ausente"; exit 1; }
     head -n1 "$WG_DIR/server.pub"
     ;;
-  *) echo "uso: add NOME CHAVE | remove NOME | list | pubkey"; exit 64 ;;
+  *) echo "uso: add NOME CHAVE | remove NOME | list | pubkey | status"; exit 64 ;;
 esac

@@ -4,4 +4,4 @@ Defaults:www-data !requiretty
 Defaults:www-data env_reset
 www-data ALL=(root) NOPASSWD: /opt/radpanel/bin/panel-restart-radius.sh ""
 # Túnel WireGuard (roteadores com IP dinâmico): o helper valida nome e chave pública (regex) e só mexe em /etc/wireguard.
-www-data ALL=(root) NOPASSWD: /opt/radpanel/bin/panel-wg-peer.sh add *, /opt/radpanel/bin/panel-wg-peer.sh remove *, /opt/radpanel/bin/panel-wg-peer.sh list, /opt/radpanel/bin/panel-wg-peer.sh pubkey
+www-data ALL=(root) NOPASSWD: /opt/radpanel/bin/panel-wg-peer.sh add *, /opt/radpanel/bin/panel-wg-peer.sh remove *, /opt/radpanel/bin/panel-wg-peer.sh list, /opt/radpanel/bin/panel-wg-peer.sh pubkey, /opt/radpanel/bin/panel-wg-peer.sh status

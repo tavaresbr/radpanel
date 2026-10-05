@@ -100,3 +100,24 @@ function wg_peer_remove(string $name): void
         throw new RuntimeException($r['message']);
     }
 }
+
+/**
+ * Estado dos roteadores: [nome => ['ip' => , 'handshake' => epoch do último aperto de mão (0 = nunca), 'age' => segundos desde então|null]].
+ */
+function wg_status(): array
+{
+    $r = wg_helper(['status']);
+    if (!$r['ok']) {
+        throw new RuntimeException($r['message']);
+    }
+    $out = [];
+    $now = time();
+    foreach ($r['lines'] as $l) {
+        $p = explode(' ', $l);
+        if (count($p) === 3 && wg_valid_name($p[0]) && wg_valid_ip($p[1]) && ctype_digit($p[2])) {
+            $t = (int)$p[2];
+            $out[$p[0]] = ['ip' => $p[1], 'handshake' => $t, 'age' => $t > 0 ? max(0, $now - $t) : null];
+        }
+    }
+    return $out;
+}
