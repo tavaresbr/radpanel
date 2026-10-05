@@ -1,0 +1,32 @@
+:root{--bg:#f5f6f8;--fg:#1c2330;--card:#fff;--line:#dde1e7;--accent:#1f6feb;--bad:#c62828;--good:#2e7d32;--muted:#6b7480}
+@media (prefers-color-scheme:dark){:root{--bg:#12161d;--fg:#e6e9ef;--card:#1b212b;--line:#2c3441;--accent:#5b9dff;--bad:#ef6b6b;--good:#6fcf7a;--muted:#98a2b3}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--line)}
+header nav{display:flex;flex-wrap:wrap;gap:4px;flex:1}
+header a{padding:6px 10px;border-radius:6px;color:var(--fg);text-decoration:none}
+header a:hover{background:var(--accent);color:#fff}
+header form{margin:0}
+main{max-width:760px;margin:0 auto;padding:16px}
+h1{font-size:1.4rem;margin:.2em 0 .8em}
+h2{font-size:1.1rem;margin:1.2em 0 .5em}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:16px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.stat b{display:block;font-size:1.7rem}
+.stat span{color:var(--muted)}
+table{width:100%;border-collapse:collapse}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
+th{font-size:.85rem;color:var(--muted)}
+.scroll{overflow-x:auto}
+input{width:100%;padding:9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);font:inherit}
+button{padding:9px 14px;border:0;border-radius:6px;background:var(--accent);color:#fff;font:inherit;cursor:pointer}
+button.link{background:none;color:var(--accent)}
+.flash{padding:10px 12px;border-radius:8px;margin-bottom:12px}
+.flash.ok{background:rgba(46,125,50,.15);color:var(--good)}
+.flash.err{background:rgba(198,40,40,.15);color:var(--bad)}
+.tag{display:inline-block;padding:1px 8px;border-radius:99px;font-size:.85rem;background:var(--line)}
+.tag.bad{background:rgba(198,40,40,.2);color:var(--bad)}
+.tag.good{background:rgba(46,125,50,.2);color:var(--good)}
+.login{max-width:340px;margin:10vh auto}
+.muted{color:var(--muted)}
+.nowrap{white-space:nowrap}

@@ -1,0 +1,12 @@
+-- Usuário MySQL EXCLUSIVO do portal do cliente (nunca o usuário do painel admin).
+-- O instalador deve substituir {{DB_NAME}}, {{PORTAL_DB_USER}} e {{PORTAL_DB_PASS}} e criar o usuário:
+--   CREATE USER '{{PORTAL_DB_USER}}'@'localhost' IDENTIFIED BY '{{PORTAL_DB_PASS}}';
+-- Aplique depois de sql/panel.sql e sql/portal.sql.
+-- SEM acesso direto a radcheck/radreply/panel_admins/panel_audit/nas etc.
+GRANT SELECT ON {{DB_NAME}}.portal_user_auth     TO '{{PORTAL_DB_USER}}'@'localhost';
+GRANT EXECUTE ON PROCEDURE {{DB_NAME}}.portal_set_password TO '{{PORTAL_DB_USER}}'@'localhost';
+GRANT SELECT ON {{DB_NAME}}.radacct              TO '{{PORTAL_DB_USER}}'@'localhost';
+GRANT SELECT ON {{DB_NAME}}.radusergroup         TO '{{PORTAL_DB_USER}}'@'localhost';
+GRANT SELECT ON {{DB_NAME}}.radgroupreply        TO '{{PORTAL_DB_USER}}'@'localhost';
+GRANT SELECT ON {{DB_NAME}}.panel_user_meta      TO '{{PORTAL_DB_USER}}'@'localhost';
+GRANT SELECT, INSERT, DELETE ON {{DB_NAME}}.panel_login_attempts TO '{{PORTAL_DB_USER}}'@'localhost';

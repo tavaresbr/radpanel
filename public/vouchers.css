@@ -1,0 +1,13 @@
+.vgrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+.vcard{background:var(--card);border:1px dashed var(--muted);border-radius:8px;padding:10px;break-inside:avoid;page-break-inside:avoid}
+.vtitle{font-weight:600;margin-bottom:4px}
+.vmeta{color:var(--muted);font-size:.8rem;margin-top:4px}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:1.05rem;letter-spacing:.05em}
+@media print{
+  body{background:#fff;color:#000}
+  .noprint{display:none!important}
+  .vgrid{grid-template-columns:repeat(3,1fr);gap:6px}
+  .vcard{background:#fff;border:1px dashed #000;color:#000}
+  .vmeta{color:#333}
+  h1{display:none}
+}

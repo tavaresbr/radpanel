@@ -1,0 +1,37 @@
+# Vhost separado para o portal do cliente (outro nome de host que o painel admin).
+# Docroot = portal/public. O portal usa SOMENTE lib/core.php + portal/lib (não o bootstrap admin)
+# e outro arquivo de configuração, com o usuário MySQL "radportal" (privilégio mínimo).
+<VirtualHost *:443>
+    ServerName meu.exemplo.com.br
+    DocumentRoot /opt/radpanel/portal/public
+
+    SSLEngine on
+    SSLCertificateFile    /etc/ssl/certs/meu.exemplo.com.br.pem
+    SSLCertificateKeyFile /etc/ssl/private/meu.exemplo.com.br.key
+
+    SetEnv RADPANEL_CONFIG /etc/radpanel/portal-config.php
+
+    <Directory /opt/radpanel/portal/public>
+        Require all granted
+        Options -Indexes -MultiViews
+        AllowOverride None
+        DirectoryIndex index.php
+    </Directory>
+
+    # Nada fora de portal/public é servido.
+    <DirectoryMatch "^/opt/radpanel/(?!portal/public)">
+        Require all denied
+    </DirectoryMatch>
+
+    ErrorLog  ${APACHE_LOG_DIR}/radportal-error.log
+    CustomLog ${APACHE_LOG_DIR}/radportal-access.log combined
+</VirtualHost>
+
+# Alternativa: alias no mesmo host (use um host/cookie distinto do admin sempre que possível):
+#   Alias /meu /opt/radpanel/portal/public
+#   <Location /meu>
+#       SetEnv RADPANEL_CONFIG /etc/radpanel/portal-config.php
+#   </Location>
+# /etc/radpanel/portal-config.php: mesmo formato do config.php, mas com
+#   'db_user' => 'radportal', 'db_pass' => '...'   (nunca o usuário do painel admin).
+# Permissão do arquivo: 0640 root:www-data.

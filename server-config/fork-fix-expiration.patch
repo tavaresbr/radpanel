@@ -1,0 +1,16 @@
+--- a/src/lib/util/value.c	2026-10-05 02:32:39.119785076 +0000
++++ b/src/lib/util/value.c	2026-10-05 02:32:39.125524634 +0000
+@@ -6119,6 +6119,13 @@
+ 
+ 		memcpy(buffer, fr_sbuff_current(in), fr_sbuff_remaining(in));
+ 		buffer[fr_sbuff_remaining(in)] = '\0';
++
++		/*
++		 *	We consumed the whole input, so tell the caller.  Without this the
++		 *	function returns 0 on success for date / ifid, and callers which test
++		 *	"slen <= 0" (e.g. map_afrom_fields() for rlm_sql check items) treat it as failure.
++		 */
++		fr_sbuff_advance(&our_in, fr_sbuff_remaining(&our_in));
+ 	}
+ 
+ 	switch (dst_type) {

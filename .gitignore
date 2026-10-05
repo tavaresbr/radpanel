@@ -1,0 +1,22 @@
+# Configuração e segredos de cada instalação (nunca versionar)
+config.php
+portal-config.php
+backup.cnf
+*.cnf
+*.key
+*.pem
+
+# Saídas de teste e logs
+*.log
+*.out
+*.pid
+*.bak
+*.orig
+-2f*
+/tests/.tmp*
+
+# Editor / sistema
+.DS_Store
+*.swp
+.idea/
+.vscode/

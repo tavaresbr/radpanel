@@ -1,0 +1,19 @@
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.tabs a{padding:5px 10px;border:1px solid var(--line);border-radius:6px;text-decoration:none;color:var(--fg);background:var(--card)}
+.tabs a.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.chart{width:100%;height:auto;display:block;max-height:380px}
+.chart-text{fill:var(--muted)}
+.chart-grid{stroke:var(--line);stroke-width:1}
+.chart-axis{stroke:var(--muted);stroke-width:1}
+.bar-up{fill:var(--accent)}
+.bar-down{fill:var(--good)}
+.bar-s1{fill:var(--accent)}
+.bar-s2{fill:var(--good)}
+.bar-s3{fill:var(--muted)}
+.bar-s4{fill:var(--bad)}
+.bar-s5,.bar-s6{fill:var(--line)}
+.bar-hit{fill:transparent}
+.bar-hit:hover{fill:var(--accent);fill-opacity:.12}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tfoot td{font-weight:600}
+.export{margin-top:12px}

@@ -1,0 +1,14 @@
+Acrescente UMA vez, no fim de <raddb>/clients.conf (ex.: /opt/freeradius/etc/raddb/clients.conf):
+
+    $INCLUDE clients.d/
+
+E crie o diretório, gravável pelo usuário do painel e legível pelo freeradius:
+
+    install -d -m 2770 -o www-data -g freeradius /opt/freeradius/etc/raddb/clients.d
+
+O painel grava clients.d/<nome>.conf (modo 0640) ao cadastrar um equipamento em "Equipamentos".
+Arquivos que começam com "." são ignorados pelo FreeRADIUS (o painel usa isso nos temporários).
+O FreeRADIUS 4.0 não recarrega clientes com SIGHUP: use o botão "Aplicar (reiniciar serviço)",
+que roda o helper bin/panel-restart-radius.sh (instale-o em /opt/radpanel/bin/, root:root 0755,
+e o sudoers.radpanel em /etc/sudoers.d/radpanel, 0440).
+Opcional no config.php do painel: 'clients_d_group' => 'freeradius', 'restart_helper' => '/opt/radpanel/bin/panel-restart-radius.sh'.

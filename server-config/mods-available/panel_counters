@@ -1,0 +1,101 @@
+#  RadPanel: contadores de tempo e de franquia de dados.
+#
+#  NAO redefine as instancias stock (dailycounter, monthlycounter, noresetcounter...).
+#  Todos os contadores/limites usam referencias completas (control.*), como exige o 4.0.
+#
+#  Tempo:   control.Max-Daily-Session / Max-Monthly-Session / Max-All-Session (segundos)
+#           -> reply.Session-Timeout (o menor valor entre os contadores e o plano prevalece).
+#  Dados:   control.Max-Quota-{Daily,Monthly,Total}-Octets (bytes, entrada + saida)
+#           -> sem reply_name: o restante e calculado na policy panel_limits (Mikrotik.Total-Limit).
+#
+#  dialect = mysql fixo (nao usa ${modules.sql.dialect}: "panel_counters" e lido antes de "sql" em mods-enabled).
+#  O reset "daily"/"monthly" usa o fuso do sistema operacional do servidor (utc = no); mantenha-o
+#  igual ao fuso do painel (America/Sao_Paulo).  As queries ficam em
+#  mods-config/sql/counter/mysql/<instancia>.conf
+#
+sqlcounter panel_daily {
+	sql_module_instance = sql
+	dialect = mysql
+	counter_name = control.Panel-Daily-Used
+	check_name = control.Max-Daily-Session
+	reply_name = reply.Session-Timeout
+	reply_message_name = Reply-Message
+	reset_period_start_name = control.Panel-Daily-Start
+	reset_period_end_name = control.Panel-Daily-End
+	auto_extend = no
+	key = User-Name
+	reset = daily
+	$INCLUDE ${modconfdir}/sql/counter/${dialect}/${.:instance}.conf
+}
+
+sqlcounter panel_monthly {
+	sql_module_instance = sql
+	dialect = mysql
+	counter_name = control.Panel-Monthly-Used
+	check_name = control.Max-Monthly-Session
+	reply_name = reply.Session-Timeout
+	reply_message_name = Reply-Message
+	reset_period_start_name = control.Panel-Monthly-Start
+	reset_period_end_name = control.Panel-Monthly-End
+	auto_extend = no
+	key = User-Name
+	reset = monthly
+	$INCLUDE ${modconfdir}/sql/counter/${dialect}/${.:instance}.conf
+}
+
+sqlcounter panel_total {
+	sql_module_instance = sql
+	dialect = mysql
+	counter_name = control.Panel-Total-Used
+	check_name = control.Max-All-Session
+	reply_name = reply.Session-Timeout
+	reply_message_name = Reply-Message
+	reset_period_start_name = control.Panel-Total-Start
+	reset_period_end_name = control.Panel-Total-End
+	auto_extend = no
+	key = User-Name
+	reset = never
+	$INCLUDE ${modconfdir}/sql/counter/${dialect}/${.:instance}.conf
+}
+
+sqlcounter panel_quota_day {
+	sql_module_instance = sql
+	dialect = mysql
+	counter_name = control.Panel-Quota-Day-Used
+	check_name = control.Max-Quota-Daily-Octets
+	reply_message_name = Reply-Message
+	reset_period_start_name = control.Panel-QuotaDay-Start
+	reset_period_end_name = control.Panel-QuotaDay-End
+	auto_extend = no
+	key = User-Name
+	reset = daily
+	$INCLUDE ${modconfdir}/sql/counter/${dialect}/${.:instance}.conf
+}
+
+sqlcounter panel_quota_month {
+	sql_module_instance = sql
+	dialect = mysql
+	counter_name = control.Panel-Quota-Month-Used
+	check_name = control.Max-Quota-Monthly-Octets
+	reply_message_name = Reply-Message
+	reset_period_start_name = control.Panel-QuotaMonth-Start
+	reset_period_end_name = control.Panel-QuotaMonth-End
+	auto_extend = no
+	key = User-Name
+	reset = monthly
+	$INCLUDE ${modconfdir}/sql/counter/${dialect}/${.:instance}.conf
+}
+
+sqlcounter panel_quota_total {
+	sql_module_instance = sql
+	dialect = mysql
+	counter_name = control.Panel-Quota-Total-Used
+	check_name = control.Max-Quota-Total-Octets
+	reply_message_name = Reply-Message
+	reset_period_start_name = control.Panel-QuotaTotal-Start
+	reset_period_end_name = control.Panel-QuotaTotal-End
+	auto_extend = no
+	key = User-Name
+	reset = never
+	$INCLUDE ${modconfdir}/sql/counter/${dialect}/${.:instance}.conf
+}

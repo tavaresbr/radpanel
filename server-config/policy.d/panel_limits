@@ -1,0 +1,104 @@
+#  RadPanel: limites por usuario/plano.  Requer mods-available/panel_counters habilitado.
+#
+#  Duas policies, chamadas no "recv Access-Request" do site default
+#  (bin/apply-server-config.sh faz a insercao entre os marcadores "# BEGIN radpanel"):
+#
+#    panel_limits_prepare   ANTES do "-sql"  : normaliza Calling-Station-Id (AA-BB-CC-DD-EE-FF),
+#                           necessario para que a linha radcheck  Calling-Station-Id == AA-BB-...
+#                           (MAC fixo) seja comparada corretamente pelo rlm_sql.
+#    panel_limits           ANTES do "pap"   : (depois do "-sql", que carrega radcheck/radgroupcheck
+#                           na lista control) checa MAC, sessoes simultaneas, contadores de tempo e
+#                           de dados, e calcula o restante da franquia para o MikroTik.
+#
+#  Observacoes:
+#   - Item de checagem "Calling-Station-Id == X" do radcheck: se nao bater, o rlm_sql descarta todas
+#     as linhas do usuario (ele fica sem senha e e rejeitado).  Mesmo assim a policy confere o MAC
+#     por conta propria para devolver uma mensagem clara.
+#   - Simultaneous-Use nao e implementado pelo servidor 4.0: a contagem e feita aqui via radacct
+#     (sessoes sem acctstoptime e com atualizacao nas ultimas 24 h).
+#   - Fluxos EAP que retornam antes do "-sql" (eap { ok = return }) nao passam por aqui; para
+#     PEAP/TTLS o mesmo bloco deve ser chamado no site inner-tunnel.
+#
+
+panel_limits_prepare {
+	rewrite_calling_station_id
+}
+
+panel_limits {
+	uint32 q_have
+	uint32 q_cnt
+	uint64 q_left
+	uint64 q_rem
+	string q_mac
+
+	#
+	#  1. MAC fixo
+	#
+	q_mac := %sql("SELECT IFNULL(MAX(value), '') FROM radcheck WHERE username = '%{User-Name}' AND attribute = 'Calling-Station-Id' AND op = '=='")
+	if (q_mac != '') {
+		if (!Calling-Station-Id || (%str.upper(Calling-Station-Id) != %str.upper(q_mac))) {
+			reply.Reply-Message := "Dispositivo nao autorizado para este usuario"
+			reject
+		}
+	}
+
+	#
+	#  2. Sessoes simultaneas
+	#
+	if (control.Simultaneous-Use) {
+		q_cnt := (uint32) %sql("SELECT COUNT(*) FROM radacct WHERE username = '%{User-Name}' AND acctstoptime IS NULL AND acctupdatetime > DATE_SUB(NOW(), INTERVAL 1 DAY)")
+		if (q_cnt >= control.Simultaneous-Use) {
+			reply.Reply-Message := "Limite de sessoes simultaneas atingido"
+			reject
+		}
+	}
+
+	#
+	#  3. Tempo (diario, mensal, total): rejeitam quando esgotado e limitam Session-Timeout.
+	#
+	panel_daily
+	panel_monthly
+	panel_total
+
+	#
+	#  4. Franquia de dados: rejeitam quando esgotada.
+	#
+	panel_quota_day
+	panel_quota_month
+	panel_quota_total
+
+	#
+	#  5. Restante da franquia (o menor entre os periodos configurados) -> MikroTik.
+	#     Mikrotik.Total-Limit = 32 bits baixos; Total-Limit-Gigawords = bits altos.
+	#
+	q_have := 0
+
+	if (control.Panel-Quota-Day-Used) {
+		q_rem := (control.Max-Quota-Daily-Octets - control.Panel-Quota-Day-Used) || 0
+		q_left := q_rem
+		q_have := 1
+	}
+	if (control.Panel-Quota-Month-Used) {
+		q_rem := (control.Max-Quota-Monthly-Octets - control.Panel-Quota-Month-Used) || 0
+		if ((q_have == 0) || (q_rem < q_left)) {
+			q_left := q_rem
+			q_have := 1
+		}
+	}
+	if (control.Panel-Quota-Total-Used) {
+		q_rem := (control.Max-Quota-Total-Octets - control.Panel-Quota-Total-Used) || 0
+		if ((q_have == 0) || (q_rem < q_left)) {
+			q_left := q_rem
+			q_have := 1
+		}
+	}
+
+	if (q_have == 1) {
+		reply.Mikrotik.Total-Limit := (uint32) (q_left & 4294967295)
+		if ((q_left >> 32) > 0) {
+			reply.Mikrotik.Total-Limit-Gigawords := (uint32) (q_left >> 32)
+		}
+	}
+
+	updated
+}

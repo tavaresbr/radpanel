@@ -1,0 +1,8 @@
+.pw-input{width:14em}
+.role-select{min-width:9em}
+.mono{font-family:ui-monospace,monospace}
+.detail{max-width:34em;word-break:break-word;font-family:ui-monospace,monospace;font-size:.85rem}
+.checks{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.checks label{flex-direction:row;align-items:center;gap:5px;color:var(--fg)}
+.narrow{width:6em}
+.cell-forms{display:flex;flex-wrap:wrap;gap:6px;align-items:center}

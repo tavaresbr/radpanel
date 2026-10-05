@@ -1,0 +1,5 @@
+# /etc/sudoers.d/radpanel  (instale com: install -m 0440 -o root -g root sudoers.radpanel /etc/sudoers.d/radpanel; visudo -cf para checar)
+# O usuário do Apache só pode rodar EXATAMENTE este script, sem argumentos.
+Defaults:www-data !requiretty
+Defaults:www-data env_reset
+www-data ALL=(root) NOPASSWD: /opt/radpanel/bin/panel-restart-radius.sh ""
