@@ -61,9 +61,18 @@ if [[ "${SKIP_APT:-0}" != "1" ]]; then
   echo "==> Pacotes"
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -y
-  apt-get install -y apache2 php libapache2-mod-php php-mysql mariadb-client openssl sudo
+  apt-get install -y apache2 php libapache2-mod-php php-mysql php-mbstring mariadb-client openssl sudo
   [[ -n "$PANEL_DOMAIN" && "${SKIP_CERTBOT:-0}" != "1" ]] && apt-get install -y certbot python3-certbot-apache
 fi
+
+# Extensões do PHP que o painel exige. Sem elas o Apache responde 500 (ex.: mb_substr indefinida).
+for ext in mbstring pdo_mysql; do
+  if ! php -r 'exit(extension_loaded($argv[1]) ? 0 : 1);' "$ext"; then
+    case "$ext" in mbstring) pkg=php-mbstring ;; pdo_mysql) pkg=php-mysql ;; esac
+    echo "Falta a extensão PHP '$ext'. Instale com: sudo apt install -y $pkg  (e rode o instalador de novo)." >&2
+    exit 1
+  fi
+done
 
 command -v mysql >/dev/null || { echo "Cliente mysql/mariadb não encontrado." >&2; exit 1; }
 mysql -e "SELECT 1" >/dev/null 2>&1 || { echo "Não consegui falar com o MariaDB como root (socket). O servidor de banco está rodando?" >&2; exit 1; }
@@ -252,6 +261,27 @@ sed -i 's/^ServerTokens .*/ServerTokens Prod/' /etc/apache2/conf-available/secur
 apache2ctl configtest
 systemctl enable apache2 >/dev/null 2>&1 || true
 systemctl restart apache2 || service apache2 restart || true
+sleep 2
+
+# Teste de saúde: o painel precisa responder 200 na tela de login. Se responder 500, o instalador NÃO diz que deu certo.
+health_check() { # url, host(opcional)
+  local url=$1 host=${2:-} code
+  code="$(curl -s -o /dev/null -w '%{http_code}' ${host:+-H "Host: $host"} "$url" || true)"
+  [[ -n "$code" ]] || code=000
+  if [[ "$code" != "200" ]]; then
+    echo "ERRO: ${host:-$url} respondeu HTTP $code (esperado 200). Últimas linhas do log do Apache:" >&2
+    tail -n 5 /var/log/apache2/radpanel-error.log 2>/dev/null >&2 || true
+    echo "Corrija o erro acima e rode o instalador de novo." >&2
+    exit 1
+  fi
+  echo "    ${host:-$url}: HTTP 200 (ok)"
+}
+if [[ -n "$PANEL_DOMAIN" ]]; then
+  health_check "http://127.0.0.1/login.php" "$PANEL_DOMAIN"
+  [[ -n "$PORTAL_DOMAIN" ]] && health_check "http://127.0.0.1/login.php" "$PORTAL_DOMAIN"
+else
+  health_check "http://127.0.0.1:8080/login.php"
+fi
 
 if [[ -n "$PANEL_DOMAIN" ]]; then
   if [[ "${SKIP_FIREWALL:-0}" != "1" ]] && command -v iptables >/dev/null; then

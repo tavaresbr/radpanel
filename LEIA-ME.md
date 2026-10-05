@@ -44,6 +44,10 @@ Pode rodar de novo sem perder nada (mantém `config.php`, senha do banco e admin
 Antes: se usar domínio, ele precisa apontar (registro A) para o IP do servidor, e as portas **TCP 80 e 443**
 precisam estar liberadas na Security List da Oracle.
 
+O instalador instala o `php-mbstring` e confere as extensões PHP; no fim testa `login.php` localmente e, se der erro 500,
+mostra o fim do log. Para diagnosticar na mão: `sudo tail -n 25 /var/log/apache2/radpanel-error.log`
+(`mb_substr() indefinida` = falta `sudo apt install -y php-mbstring` e `sudo systemctl restart apache2`).
+
 Sem domínio: `ssh -L 8080:127.0.0.1:8080 -i SUA_CHAVE ubuntu@150.230.64.46` e abra `http://127.0.0.1:8080/`.
 
 Onde fica: código em `/opt/radpanel` (fora da pasta web), configuração em `/etc/radpanel/` (modo 640),

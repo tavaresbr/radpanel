@@ -14,6 +14,13 @@ const ATTR_RATE       = 'Mikrotik.Rate-Limit';
 const BLOCK_DATE_UTC  = '2000-01-01T00:00:00Z';
 const PER_PAGE        = 50;
 
+if (!function_exists('mb_substr')) {
+    http_response_code(500);
+    header('Content-Type: text/plain; charset=utf-8');
+    error_log('radpanel: PHP sem a extensão mbstring (sudo apt install php-mbstring)');
+    exit('PHP sem mbstring: sudo apt install php-mbstring && sudo systemctl restart apache2');
+}
+
 $cfgFile = getenv('RADPANEL_CONFIG') ?: '/etc/radpanel/config.php';
 if (!is_readable($cfgFile)) {
     http_response_code(500);
