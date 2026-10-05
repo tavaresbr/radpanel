@@ -294,7 +294,10 @@ if [[ -n "$PANEL_DOMAIN" ]]; then
   fi
   if [[ "${SKIP_CERTBOT:-0}" != "1" ]]; then
     echo "==> Certificado HTTPS"
-    certbot --apache -d "$PANEL_DOMAIN" ${PORTAL_DOMAIN:+-d "$PORTAL_DOMAIN"} -m "$EMAIL" --agree-tos --no-eff-email --redirect --non-interactive
+    if ! certbot --apache --expand -d "$PANEL_DOMAIN" ${PORTAL_DOMAIN:+-d "$PORTAL_DOMAIN"} -m "$EMAIL" --agree-tos --no-eff-email --redirect --non-interactive; then
+      echo "AVISO: o certificado HTTPS não foi emitido (confira se o DNS dos domínios aponta para este servidor e as portas 80/443 estão abertas)." >&2
+      echo "       O painel segue no ar. Para tentar de novo: sudo certbot --apache --expand -d $PANEL_DOMAIN${PORTAL_DOMAIN:+ -d $PORTAL_DOMAIN} --redirect" >&2
+    fi
   fi
 fi
 
