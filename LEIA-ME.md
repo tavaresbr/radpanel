@@ -89,6 +89,7 @@ ganha um IP fixo interno `10.99.0.N`; esse é o IP que vai em Equipamentos. RADI
    Cole no MikroTik o script gerado, depois use **Cadastrar** na lista (cria o equipamento com o IP do túnel) e clique em **Aplicar** em Equipamentos.
 4. Em **Ferramentas**, gere o script do RADIUS com servidor `10.99.0.1` e "IP do túnel" `10.99.0.N`.
 
+Se a etapa 2 ficar em "ainda sem conexão", confira primeiro se o **roteador tem internet** (`/ping 1.1.1.1`): um MikroTik usado como ponto de acesso atrás de outro roteador costuma estar sem IP de WAN e sem rota padrão, e aí o túnel nunca sai dele.
 Não testado em equipamento real: o túnel com MikroTik, `wg-quick` no Ubuntu do servidor e as regras iptables (os testes usam `wg` e `sudo` falsos).
 Se o firewall do MikroTik bloqueia entrada, o script traz (comentada) a regra para o servidor poder derrubar sessões.
 

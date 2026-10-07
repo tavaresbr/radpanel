@@ -301,7 +301,9 @@ if ($step === 1) {
 <?php else: ?>
   <p><span class="tag bad">ainda sem conexão</span> Depois de colar o script, espere uns segundos e use "Verificar de novo".</p>
   <ul class="muted">
-    <li>Libere <strong>UDP 51820</strong> na Security List da Oracle.</li>
+    <li><strong>O roteador tem internet?</strong> No MikroTik: <code>/ping 1.1.1.1 count=3</code>. Se der timeout, falta IP de WAN ou rota padrão
+      (<code>/ip address print</code> e <code>/ip route print where dst-address=0.0.0.0/0</code>); sem isso o túnel nunca sai do roteador.</li>
+    <li>Libere <strong>UDP 51820</strong> na Security List da Oracle (protocolo <strong>UDP</strong>, não TCP).</li>
     <li>No MikroTik: <code>/interface wireguard peers print</code> (deve mostrar o servidor) e <code>/ping 10.99.0.1 count=3</code>.</li>
     <li>O relógio do roteador precisa estar certo (<code>/system clock print</code>).</li>
     <li>Recriou a interface <code>wg-radius</code> no MikroTik? A chave mudou: rode <code>:put [/interface wireguard get wg-radius public-key]</code> e use
