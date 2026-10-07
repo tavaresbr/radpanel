@@ -16,3 +16,5 @@ td.money,th.money{text-align:right}
 .bar.w0{width:0}.bar.w1{width:10%}.bar.w2{width:20%}.bar.w3{width:30%}.bar.w4{width:40%}.bar.w5{width:50%}
 .bar.w6{width:60%}.bar.w7{width:70%}.bar.w8{width:80%}.bar.w9{width:90%}.bar.w10{width:100%}
 .barcell{width:140px}
+.muted.bad{color:var(--bad)}
+.row p.wide{flex:1 1 100%;margin:0}
