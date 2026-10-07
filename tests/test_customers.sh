@@ -87,8 +87,9 @@ q "INSERT INTO radusergroup (username,groupname,priority) VALUES ('u_ana','basic
 
 # --- validações de cadastro
 # CPF válido único por chamada (cadastro agora exige CPF/CNPJ)
-DOCN=100000000
-nextdoc() { DOCN=$((DOCN+1)); php -r 'require $argv[1]."/lib/customers.php"; $b=$argv[2]; foreach([10,11] as $n){$s=0;for($i=0;$i<strlen($b);$i++)$s+=(int)$b[$i]*($n-$i);$r=$s%11;$b.=($r<2?0:11-$r);} echo $b;' "$ROOT" "$DOCN"; }
+# O contador fica num arquivo: nextdoc roda dentro de $(...) (subshell), onde uma variável não avançaria.
+echo 100000000 >"$T_DIR/docn"
+nextdoc() { local n; n=$(( $(cat "$T_DIR/docn") + 1 )); echo "$n" >"$T_DIR/docn"; set -- "$n"; php -r 'require $argv[1]."/lib/customers.php"; $b=$argv[2]; foreach([10,11] as $n){$s=0;for($i=0;$i<strlen($b);$i++)$s+=(int)$b[$i]*($n-$i);$r=$s%11;$b.=($r<2?0:11-$r);} echo $b;' "$ROOT" "$1"; }
 inv() { # descricao campos
   t_post toper customers.php customers.php "action=create&document=$(nextdoc)&$2" >/dev/null
   ok "$1" "$(q "SELECT COUNT(*) FROM panel_customers")" "$3"
@@ -120,7 +121,8 @@ inv "vínculo case-insensitive (U_ANA) rejeitado" "name=Outro2&username=U_ANA" 2
 # edição: não pode roubar o usuário do outro
 t_post toper customer.php customer.php "action=update&id=$BIA&name=Bia+Souza&username=u_ana" >/dev/null
 ok "edição não rouba vínculo" "$(q "SELECT username FROM panel_customers WHERE id=$BIA")" u_bia
-ok "edição válida" "$(t_post toper customer.php customer.php "action=update&id=$BIA&name=Bia+Souza&phone=11999990000&username=u_bia")" 302
+BIADOC=$(q "SELECT document FROM panel_customers WHERE id=$BIA")   # o formulário real sempre reenvia o documento preenchido
+ok "edição válida" "$(t_post toper customer.php customer.php "action=update&id=$BIA&name=Bia+Souza&phone=11999990000&document=$BIADOC&username=u_bia")" 302
 ok "  telefone gravado" "$(q "SELECT phone FROM panel_customers WHERE id=$BIA")" 11999990000
 ok "viewer não edita (403)" "$(t_post tview customers.php customer.php "action=update&id=$BIA&name=Hack")" 403
 ok "  nome intacto" "$(q "SELECT name FROM panel_customers WHERE id=$BIA")" "Bia Souza"
