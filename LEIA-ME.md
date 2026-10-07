@@ -90,6 +90,9 @@ ganha um IP fixo interno `10.99.0.N`; esse é o IP que vai em Equipamentos. RADI
 4. Em **Ferramentas**, gere o script do RADIUS com servidor `10.99.0.1` e "IP do túnel" `10.99.0.N`.
 
 Se a etapa 2 ficar em "ainda sem conexão", confira primeiro se o **roteador tem internet** (`/ping 1.1.1.1`): um MikroTik usado como ponto de acesso atrás de outro roteador costuma estar sem IP de WAN e sem rota padrão, e aí o túnel nunca sai dele.
+**Dois MikroTik no mesmo local, ligados por cabo:** deixe só um como hotspot (túnel + RADIUS); o outro vira ponto de acesso (servidor DHCP e hotspot
+desligados, IP de gerência diferente do `.1`, sem túnel). Dois roteadores com a mesma LAN `192.168.88.0/24` um atrás do outro não conseguem sair para a
+internet: o gateway oferecido é o próprio roteador.
 Não testado em equipamento real: o túnel com MikroTik, `wg-quick` no Ubuntu do servidor e as regras iptables (os testes usam `wg` e `sudo` falsos).
 Se o firewall do MikroTik bloqueia entrada, o script traz (comentada) a regra para o servidor poder derrubar sessões.
 
