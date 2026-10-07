@@ -140,7 +140,7 @@ function mikrotik_script(array $in): string
     $ppp = in_array('ppp', $v['services'], true);
 
     $tag = 'RadPanel-' . $v['name'];
-    $hsSel = $v['hotspot_profile'] === '' ? 'default=yes' : 'name="' . $v['hotspot_profile'] . '"';
+    $hsSel = $v['hotspot_profile'] === '' ? '' /* vazio: todos os perfis (o Hotspot Setup do MikroTik cria e usa "hsprof1", não o "default") */ : ' name="' . $v['hotspot_profile'] . '"';
     $fwIp = filter_var($v['server_ip'], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false;
 
     $l = [];
@@ -175,7 +175,7 @@ function mikrotik_script(array $in): string
     if ($hotspot) {
         // O painel guarda o MAC como AA-BB-CC-DD-EE-FF; o padrão do MikroTik (XX:XX:...) não casaria.
         $l[] = sprintf(
-            '/ip hotspot profile set [ find %s ] use-radius=yes radius-accounting=%s radius-interim-update=%dm radius-mac-format=XX-XX-XX-XX-XX-XX',
+            '/ip hotspot profile set [ find%s ] use-radius=yes radius-accounting=%s radius-interim-update=%dm radius-mac-format=XX-XX-XX-XX-XX-XX',
             $hsSel,
             $acct,
             $v['interim']
@@ -194,7 +194,7 @@ function mikrotik_script(array $in): string
         }
     }
     if ($hotspot) {
-        $l[] = sprintf('# /ip hotspot profile set [ find %s ] use-radius=no', $hsSel);
+        $l[] = sprintf('# /ip hotspot profile set [ find%s ] use-radius=no', $hsSel);
     }
     if ($ppp) {
         $l[] = '# /ppp aaa set use-radius=no';

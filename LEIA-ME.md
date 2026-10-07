@@ -93,6 +93,7 @@ Se a etapa 2 ficar em "ainda sem conexão", confira primeiro se o **roteador tem
 **Dois MikroTik no mesmo local, ligados por cabo:** deixe só um como hotspot (túnel + RADIUS); o outro vira ponto de acesso (servidor DHCP e hotspot
 desligados, IP de gerência diferente do `.1`, sem túnel). Dois roteadores com a mesma LAN `192.168.88.0/24` um atrás do outro não conseguem sair para a
 internet: o gateway oferecido é o próprio roteador.
+O script do RADIUS liga o RADIUS em **todos** os perfis de hotspot quando nenhum é indicado: o *Hotspot Setup* do MikroTik cria e usa o perfil `hsprof1`, e um script que mexesse só no `default` deixaria o hotspot autenticando localmente sem aviso.
 Não testado em equipamento real: o túnel com MikroTik, `wg-quick` no Ubuntu do servidor e as regras iptables (os testes usam `wg` e `sudo` falsos).
 Se o firewall do MikroTik bloqueia entrada, o script traz (comentada) a regra para o servidor poder derrubar sessões.
 

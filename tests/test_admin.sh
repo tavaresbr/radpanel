@@ -196,7 +196,7 @@ function t(string $d, bool $c) { global $fail, $n; $n++; if (!$c) { $fail++; ech
 $s = mikrotik_script($base);
 t('script válido', str_contains($s, '/radius add service=hotspot,ppp address=150.230.64.46 secret="Abc123-def456" authentication-port=1812 accounting-port=1813'));
 t('incoming', str_contains($s, '/radius incoming set accept=yes port=3799'));
-t('hotspot profile', str_contains($s, '/ip hotspot profile set [ find default=yes ] use-radius=yes radius-accounting=yes radius-interim-update=5m'));
+t('hotspot profile', str_contains($s, '/ip hotspot profile set [ find ] use-radius=yes radius-accounting=yes radius-interim-update=5m'));
 t('ppp aaa', str_contains($s, '/ppp aaa set use-radius=yes accounting=yes interim-update=5m'));
 foreach (explode("\n", trim($s)) as $line) {
   if ($line[0] === '#') { t("comentário sem perigo: $line", !preg_match('/[;$`]/', $line)); continue; }
@@ -211,6 +211,8 @@ t('accounting=no', str_contains($s2, 'accounting=no'));
 t('sem incoming', !str_contains($s2, 'incoming'));
 $p = $base; $p['services'] = ['hotspot']; $p['hotspot_profile'] = 'meu-perfil'; $s3 = mikrotik_script($p);
 t('perfil nomeado', str_contains($s3, '[ find name="meu-perfil" ]') && !str_contains($s3, 'ppp aaa'));
+t('rollback: todos os perfis', str_contains($s, '# /ip hotspot profile set [ find ] use-radius=no'));
+t('rollback: perfil nomeado', str_contains($s3, '# /ip hotspot profile set [ find name="meu-perfil" ] use-radius=no'));
 $p = $base; $p['server_ip'] = 'radius.exemplo.com.br'; t('hostname ok', str_contains(mikrotik_script($p), 'address=radius.exemplo.com.br '));
 $p = $base; $p['server_ip'] = '2001:db8::1'; t('ipv6 ok', str_contains(mikrotik_script($p), 'address=2001:db8::1 '));
 

@@ -356,7 +356,7 @@ if ($step === 1) {
     $row = $q->fetch();
     ?>
 <h2>5. Configurar o RADIUS no roteador</h2>
-<p>Cole este script no terminal do MikroTik. Ele aponta o hotspot para este servidor<?= $mode === 'wg' ? ' pelo túnel' : '' ?>. Para outras opções (só hotspot, só PPP, portas) use <a href="tools.php">Ferramentas</a>.</p>
+<p>Cole este script no terminal do MikroTik. Ele aponta o hotspot para este servidor<?= $mode === 'wg' ? ' pelo túnel' : '' ?> e liga o RADIUS em <strong>todos</strong> os perfis de hotspot do roteador (o Hotspot Setup do MikroTik costuma usar o perfil <code>hsprof1</code>, não o <code>default</code>). Para um perfil só, ou outras opções (só hotspot, só PPP, portas), use <a href="tools.php">Ferramentas</a>.</p>
 <?php
     try {
         if (!$row) {

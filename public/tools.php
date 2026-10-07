@@ -102,7 +102,7 @@ em Equipamentos. Sintaxe RouterOS 7.x; revise antes de aplicar.</p>
     <label>Segredo<input name="secret" id="mt-secret" required minlength="8" maxlength="64" autocomplete="new-password"></label>
     <label>&nbsp;<button type="button" class="secondary" data-gensecret="mt-secret">Gerar segredo forte</button></label>
     <label>Nome do equipamento<input name="name" maxlength="32" placeholder="loja-centro" value="<?= h((string)$in['name']) ?>"></label>
-    <label>Perfil de hotspot (vazio = padrão)<input name="hotspot_profile" maxlength="32" value="<?= h((string)$in['hotspot_profile']) ?>"></label>
+    <label>Perfil de hotspot (vazio = todos os perfis)<input name="hotspot_profile" maxlength="32" value="<?= h((string)$in['hotspot_profile']) ?>"></label>
     <label>IP do túnel WireGuard deste roteador (vazio = sem túnel)<input name="src_address" maxlength="15" placeholder="10.99.0.2" value="<?= h((string)$in['src_address']) ?>"></label>
   </div>
   <p class="muted">Use um segredo diferente em cada equipamento; ele precisa ser o mesmo cadastrado em Equipamentos.
